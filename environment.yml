@@ -1,0 +1,16 @@
+name: colorgen_5
+dependencies:
+  - fastprogress=0.1.18=py_0
+  - python=3.*
+  - tensorflow-gpu
+  - tqdm
+  - opencv
+  - pillow
+  - matplotlib
+  - numpy
+  - pandas
+  - seaborn
+  - scikit-learn
+  - jupyter
+  - pip:
+    - git+https://www.github.com/keras-team/keras-contrib.git
