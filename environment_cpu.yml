@@ -1,0 +1,16 @@
+name: colorway-cpu
+dependencies:
+  - python=3.*
+  - tensorflow
+  - tqdm
+  - opencv
+  - pillow
+  - matplotlib
+  - numpy
+  - pandas
+  - seaborn
+  - scikit-learn
+  - jupyter
+  - pip:
+    - git+https://www.github.com/keras-team/keras-contrib.git
+    - fastprogress
