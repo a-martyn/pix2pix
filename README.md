@@ -1,4 +1,12 @@
 
+## Instructions
+
+Download facades dataset:
+
+```
+bash download_dataset.sh facades
+```
+
 
 ### Implementation Notes
 

@@ -1,9 +1,7 @@
 import scipy
-import imageio
 from glob import glob
 import numpy as np
 import matplotlib.pyplot as plt
-
 
 class DataLoader():
     def __init__(self, dataset_name, img_res=(128, 128)):
@@ -12,7 +10,7 @@ class DataLoader():
 
     def load_data(self, batch_size=1, is_testing=False):
         data_type = "train" if not is_testing else "test"
-        path = glob('./datasets/%s/%s/*' % (self.dataset_name, data_type))
+        path = glob('./data/%s/%s/*' % (self.dataset_name, data_type))
 
         batch_images = np.random.choice(path, size=batch_size)
 
@@ -43,7 +41,7 @@ class DataLoader():
 
     def load_batch(self, batch_size=1, is_testing=False):
         data_type = "train" if not is_testing else "val"
-        path = glob('./datasets/%s/%s/*' % (self.dataset_name, data_type))
+        path = glob('./data/%s/%s/*' % (self.dataset_name, data_type))
 
         self.n_batches = int(len(path) / batch_size)
 
@@ -74,5 +72,4 @@ class DataLoader():
 
 
     def imread(self, path):
-        return imageio.imread(path).astype(np.float)
-
+        return scipy.misc.imread(path, mode='RGB').astype(np.float)
