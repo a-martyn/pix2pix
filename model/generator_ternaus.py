@@ -174,12 +174,11 @@ def ternausNet16(input_size=(256, 256, 3), output_channels=1,
     # (None, 256, 256, 32)
 
     # Output
-    op = Conv2D(output_channels, 1)(d1)
     if output_channels > 1:
-        # untested
-        #op = tf.nn.log_softmax_v2(d1, axis=3)
-        op = Softmax(axis=3)(op)
+        op = Conv2D(output_channels, kernel_size=4, strides=1, padding='same')(d1)
+        op = Activation('tanh')(op)
     else:
+        op = Conv2D(output_channels, 1)(d1)
         op = Activation('sigmoid')(op)  # note: ternaus excludes
 
     # Build
