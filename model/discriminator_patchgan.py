@@ -58,7 +58,7 @@ def patchgan70(input_size=(256, 256, 3)):
     op = Conv2D(1, 4, strides=1, padding='same')(x)                # ( 32,   32,  1) TRF=70
     op = Activation('sigmoid')(op)
     
-    model = Model(inputs=[img_A, img_B], outputs=[op])
+    model = Model(inputs=[img_A, img_B], outputs=[op], name='patchgan70')
     print(model.summary())
     return model
 

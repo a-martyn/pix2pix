@@ -107,6 +107,6 @@ def unet_pix2pix(input_size=(256,256,1), output_channels=1):
     d1 = upconv([d2, e1], oc, batch_norm=False, dropout=False)     # (256, 256, output_channels)
     op = Activation('tanh')(d1)
 
-    model = Model(inputs=[inputs], outputs=[op])
+    model = Model(inputs=[inputs], outputs=[op], name='unet_pix2pix')
     print(model.summary())
     return model
