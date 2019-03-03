@@ -10,7 +10,7 @@ from tensorflow.contrib.layers import instance_norm
 # from tensorflow.python.keras.layers import Lambda
 
 def instanceNorm(x):
-    x = instance_norm(x, center=False, scale=False)
+    x = instance_norm(x, center=False, scale=False, trainable=False)
     return x
 
 def normalisation(x, norm_type='instance'):

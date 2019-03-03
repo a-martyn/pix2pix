@@ -19,10 +19,10 @@ import numpy as np
 import pandas as pd
 import os
 from skimage.transform import resize
+from skimage.color import grey2rgb
 
 from model.generator_pix2pix import unet_pix2pix as build_generator
 from model.discriminator_patchgan import patchgan70 as build_discriminator
-
 
 
 def sample_images(gan, dataloader, sample_dir, epoch, batch_i, experiment_title):
@@ -41,10 +41,11 @@ def sample_images(gan, dataloader, sample_dir, epoch, batch_i, experiment_title)
     
     # Create heatmap from patchgan discriminator output
     print(f'Patch Size: {is_real[0].shape}')
-    patches = [resize(x, (256, 256, 1), order=0, preserve_range=True) for x in is_real]
+    patches = [resize(x, (256, 256, 1), order=0, preserve_range=True, anti_aliasing=False) 
+               for x in is_real]
+    patches = [grey2rgb(p[:, :, 0]) for p in patches]
     patches = np.asarray(patches)
-    patches = np.concatenate([patches, patches, patches], axis=-1) # convert to rgb
-    
+
     imgs = np.concatenate([inputs, outputs, patches, targets])
 
     # Rescale images 0 - 1
@@ -136,7 +137,10 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 
 # Parameters
 # ---------------------------------------------------------
-norm_type = 'batch'
+# GPUs available
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+
+norm_type = 'instance'
 input_sz = (256, 256, 3)
 epochs=200
 batch_size=1
