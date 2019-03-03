@@ -1,6 +1,8 @@
 from __future__ import print_function, division
 import scipy
 
+import tensorflow as tf
+from tensorflow.python.keras.engine.network import Network
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import Input, Dense, Reshape, Flatten, Dropout, Concatenate
 from tensorflow.keras.layers import BatchNormalization, Activation, ZeroPadding2D
@@ -17,6 +19,7 @@ from data_loader import DataLoader
 import numpy as np
 import pandas as pd
 import os
+from skimage.transform import resize
 
 from model.generator_pix2pix import unet_pix2pix as build_generator
 from model.discriminator_patchgan import patchgan70 as build_discriminator
@@ -27,26 +30,38 @@ def sample_images(gan, dataloader, sample_dir, epoch, batch_i, experiment_title)
     """
     Sample 3 images from generator and save to sample_dir
     """
-    
-    os.makedirs(sample_dir, exist_ok=True)
-    r, c = 3, 3
-
+    # Run a forward pass
+    # -----------------------
     targets, inputs = data_loader.load_data(batch_size=3, is_testing=True)
-    outputs, _ = gan.predict(inputs)
+    outputs, is_real = gan.predict(inputs)
 
-    imgs = np.concatenate([inputs, outputs, targets])
+    # Save images to disk
+    # -----------------------
+    os.makedirs(sample_dir, exist_ok=True)
+    r, c = 4, 3
+    
+    # Create heatmap from patchgan discriminator output
+    print(f'Patch Size: {is_real[0].shape}')
+    patches = [resize(x, (256, 256, 1), order=0, preserve_range=True) for x in is_real]
+    patches = np.asarray(patches)
+    patches = np.concatenate([patches, patches, patches], axis=-1) # convert to rgb
+    
+    imgs = np.concatenate([inputs, outputs, patches, targets])
 
     # Rescale images 0 - 1
     imgs = 0.5 * imgs + 0.5
 
-    titles = ['Condition', 'Generated', 'Original']
-    fig, axs = plt.subplots(r, c)
+    titles = ['Condition', 'Generated', 'Patches', 'Original']
+    fig, axs = plt.subplots(r, c, figsize=(10, 10))
     cnt = 0
     for i in range(r):
         for j in range(c):
             axs[i,j].imshow(imgs[cnt])
-            axs[i, j].set_title(titles[i])
             axs[i,j].axis('off')
+            if i == 2:
+                axs[i,j].set_title(f'{titles[i]}: {np.mean(is_real[j]): .2f}')
+            else:
+                axs[i, j].set_title(titles[i])
             cnt += 1
     fig.savefig(f'{sample_dir}/{str(epoch).zfill(4)}_{batch_i}_{experiment_title}.png')
     plt.close()
@@ -99,7 +114,26 @@ def train(discriminator, gan, dataloader, sample_dir, experiment_title, epochs=2
             sample_images(gan, dataloader, sample_dir, epoch, batch_i, experiment_title)
 
 
+# GAN SETUP
+# ---------------------------------------------------------
+"""
+NOTE:
+We need to ensure that the discriminator has no trainable weights 
+within the GAN model, but is trainable in isolation.
 
+This is tricky to achive in Keras because and error is thrown
+when the discriminator is set .trainable=False without compile
+being called. To achieve this we follow these steps:
+
+1. Build and compile the discriminator with learnble weights
+2. Build a 'frozen' discriminator that has no learnable weights
+3. Build a generator with learnable weights
+4. Compile frozen discriminator and generator into GAN where only
+   the generator learns.
+
+Based on suggestion given here:
+https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
+"""
 
 # Parameters
 # ---------------------------------------------------------
@@ -108,9 +142,12 @@ epochs=200
 batch_size=1
 sample_interval=200
 
+L1_loss_weight = 100
+GAN_loss_weight = 1
+
 dataset_name = 'facades'
 sample_dir = f'images/{dataset_name}'
-experiment_title = 'pix2pix_patchgan3'
+experiment_title = 'baseline'
 
 
 # Data loader
@@ -118,40 +155,56 @@ experiment_title = 'pix2pix_patchgan3'
 data_loader = DataLoader(dataset_name=dataset_name, img_res=input_sz[:2])
 
 
-# Build Discriminator
+# Build and compile Discriminator
 # ---------------------------------------------------------
+inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz)
+discriminator = Model(inputs_dsc, outputs_dsc, name='discriminator')
+
 optimizer_d = Adam(lr=0.0002, beta_1=0.5)
-discriminator = build_discriminator(input_size=input_sz)
-discriminator.compile(loss='mse', optimizer=optimizer_d, metrics=['accuracy'])
+discriminator.compile(loss='binary_crossentropy', optimizer=optimizer_d, metrics=['accuracy'])
+discriminator.summary()
+
+# Debug 1/3: Record trainable weights in discriminator
+ntrainable_dsc = len(discriminator.trainable_weights)
+
+
+# Build frozen Discriminator without learnable params
+# ---------------------------------------------------------
+frozen_discriminator = Network(inputs_dsc, outputs_dsc, name='frozen_discriminator')
+frozen_discriminator.trainable = False
+
 
 # Build Generator
 # ---------------------------------------------------------        
-generator = build_generator(input_size=input_sz, output_channels=input_sz[-1])
+input_gen, output_gen = build_generator(input_size=input_sz, output_channels=input_sz[-1])
+generator = Model(input_gen, output_gen, name='generator')
+generator.summary()
 
+# Debug  2/3: Record trainable weights in generator
+ntrainable_gen = len(generator.trainable_weights)
 
-# Build combined GAN
-# ---------------------------------------------------------
-        
-# Input conditioning image
-input_ = Input(shape=input_sz)
-# Generate fake image
-output = generator(input_)
-
-# For the gan only train the generator
-discriminator.trainable = False
-discriminator.compile(loss='mse', optimizer=optimizer_d, metrics=['accuracy'])
-
-# Is output fake or real given condition the input_?
-is_real = discriminator([output, input_])
+# Build GAN and compile
+# ---------------------------------------------------------  
+is_real = frozen_discriminator([output_gen, input_gen])
+gan = Model(input_gen, [output_gen, is_real], name='gan')
+gan.summary()
 
 optimizer_g = Adam(lr=0.0002, beta_1=0.5)
-gan = Model(inputs=[input_], outputs=[output, is_real])
-gan.compile(loss=['mae', 'mse'], loss_weights=[100, 1], optimizer=optimizer_g)
+gan.compile(loss=['mae', 'binary_crossentropy'], 
+            loss_weights=[L1_loss_weight, GAN_loss_weight], 
+            optimizer=optimizer_g)
+
+# Debug 3/3: assert that...
+# The discriminator has trainable weights
+assert(len(discriminator._collected_trainable_weights) == ntrainable_dsc)
+# Only the generators weights are trainable in the GAN model
+assert(len(gan._collected_trainable_weights) == ntrainable_gen)
 
 
 # Train
 # ---------------------------------------------------------
-
 for epoch in range(epochs):
     train(discriminator, gan, data_loader, sample_dir, experiment_title, 
           epochs=epochs, batch_size=batch_size, sample_interval=sample_interval)
+
+

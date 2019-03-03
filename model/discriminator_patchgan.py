@@ -14,32 +14,31 @@ def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True):
     bn_kwargs = dict(
         axis=-1,       # because data_loader returns channels last
         momentum=0.9,  # equivalent to pytorch defaults used by author 
-        epsilon=1e-5   # match pytorch defaults
+        epsilon=1e-5   # match pytorch/torch defaults
     )
     
     x = Conv2D(out_channels, kernel_size, strides=strides, **conv_kwargs)(x)
-    x = LeakyReLU(alpha=0.2)(x)
     if batch_norm: x = BatchNormalization(**bn_kwargs)(x)
+    x = LeakyReLU(alpha=0.2)(x)
     return x
     
     
 def patchgan70(input_size=(256, 256, 3)):
     """
     PatchGAN with a 70x70 receptive field. This is used throughout paper
-    except where a specific receptive field size is stated.
-
-    # Notes: expects input to be fake+real concatenated channel-wise
-
+    except where a specific receptive field size is stated. 
+    
+    Verified against authors' PyTorch and Torch implementations:
+    - https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/models/networks.py
+    - https://github.com/phillipi/pix2pix/blob/master/models.lua
+    
     Questions
-    - should input size be 512px?
-    - if no, when authors say receptive field 70x70 do they mean 34x34?
     - authors use padding=1 throughout. What padding does keras 'same' 
       result in here?
       
     Known discrepancies:
     - authors use batchnorm -> relu, as described in the original
-      batchnorm paper. Here we order relu -> batchnorm. 
-      It's not clear what difference this makes?
+      batchnorm paper. 
     """
 
     leak_slope = 0.2
@@ -58,7 +57,7 @@ def patchgan70(input_size=(256, 256, 3)):
     op = Conv2D(1, 4, strides=1, padding='same')(x)                # ( 32,   32,  1) TRF=70
     op = Activation('sigmoid')(op)
     
-    model = Model(inputs=[img_A, img_B], outputs=[op], name='patchgan70')
-    print(model.summary())
-    return model
+    inputs=[img_A, img_B]
+    outputs=[op]
+    return inputs, outputs
 
