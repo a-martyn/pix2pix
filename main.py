@@ -10,7 +10,6 @@ from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import UpSampling2D, Conv2D
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.optimizers import Adam
-from keras_contrib.layers.normalization import InstanceNormalization
 import datetime
 import matplotlib.pyplot as plt
 import sys
@@ -137,6 +136,7 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 
 # Parameters
 # ---------------------------------------------------------
+norm_type = 'batch'
 input_sz = (256, 256, 3)
 epochs=200
 batch_size=1
@@ -176,7 +176,9 @@ frozen_discriminator.trainable = False
 
 # Build Generator
 # ---------------------------------------------------------        
-input_gen, output_gen = build_generator(input_size=input_sz, output_channels=input_sz[-1])
+input_gen, output_gen = build_generator(norm_type='batch', 
+                                        input_size=input_sz, 
+                                        output_channels=input_sz[-1])
 generator = Model(input_gen, output_gen, name='generator')
 generator.summary()
 

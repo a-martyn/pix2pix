@@ -6,8 +6,12 @@ from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras_contrib.layers.normalization import InstanceNormalization
+from tensorflow.contrib.layers import instance_norm
+# from tensorflow.python.keras.layers import Lambda
 
+def instanceNorm(x):
+    x = instance_norm(x, center=False, scale=False)
+    return x
 
 def normalisation(x, norm_type='instance'):
     bn_kwargs = dict(
@@ -16,16 +20,11 @@ def normalisation(x, norm_type='instance'):
         epsilon=1e-5,    # match pytorch defaults
         trainable=True
     )   
-    in_kwargs = dict(
-        axis=-1, 
-        epsilon=1e-5,
-        scale=False,
-    )
     
     if norm_type == 'batch':
         x = BatchNormalization(**bn_kwargs)(x)
     elif norm_type == 'instance':
-        x = InstanceNormalization(**in_kwargs)(x)
+        x = Lambda(instanceNorm)(x)
     elif norm_type == 'none':
         pass
     else:
@@ -33,10 +32,11 @@ def normalisation(x, norm_type='instance'):
     return x
     
 
-def downconv(x, out_channels, activation=True, norm_type='instance'):
+def downconv(x, out_channels, activation=True, norm_type='instance', use_bias=True):
     
     conv_kwargs = dict(
-        padding='same', 
+        use_bias=use_bias,
+        padding='same',
         kernel_initializer='he_normal',              
         data_format='channels_last'
     )
@@ -47,8 +47,9 @@ def downconv(x, out_channels, activation=True, norm_type='instance'):
     return x
 
 
-def upconv(x, out_channels, norm_type='instance', dropout=False):
+def upconv(x, out_channels, norm_type='instance', dropout=False, use_bias=True):
     conv_kwargs = dict(
+        use_bias=use_bias,
         padding='same', 
         kernel_initializer='he_normal',              
         data_format='channels_last'
@@ -69,7 +70,7 @@ def upconv(x, out_channels, norm_type='instance', dropout=False):
 # INTENDED API
 # ------------------------------------------------------------------------------
 
-def unet_pix2pix(input_size=(256,256,1), output_channels=1):
+def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1):
     """
     A Keras/Tensorflow implementation of the U-net used in the latest pix2pix 
     PyTorch official implementation:
@@ -90,32 +91,33 @@ def unet_pix2pix(input_size=(256,256,1), output_channels=1):
     """
     
     oc = output_channels
-    nt = 'instance'
+    nt = norm_type
+    use_bias = nt == 'instance'  # use bias if using instance normalisation
     
     # ----------------------------------------------------------------
     # U-net
     
     # outermost
-    inputs = Input(input_size)                                          # (256, 256, input_size[-1])
-    e1 = downconv(inputs, 64, activation=False, norm_type='none')       # (128, 128, 64)
-    e2 = downconv(e1, 128, activation=True, norm_type=nt)       # (64, 64, 128)
-    e3 = downconv(e2, 256, activation=True, norm_type=nt)       # (32, 32, 256)
-    e4 = downconv(e3, 512, activation=True, norm_type=nt)       # (16, 16, 512)
-    e5 = downconv(e4, 512, activation=True, norm_type=nt)       # (8, 8, 512)
-    e6 = downconv(e5, 512, activation=True, norm_type=nt)       # (4, 4, 512)
-    e7 = downconv(e6, 512, activation=True, norm_type=nt)       # (2, 2, 512)
+    inputs = Input(input_size)                                                     # (256, 256, input_size[-1])
+    e1 = downconv(inputs, 64, activation=False, norm_type='none')                  # (128, 128, 64)
+    e2 = downconv(e1, 128, activation=True, norm_type=nt, use_bias=use_bias)       # (64, 64, 128)
+    e3 = downconv(e2, 256, activation=True, norm_type=nt, use_bias=use_bias)       # (32, 32, 256)
+    e4 = downconv(e3, 512, activation=True, norm_type=nt, use_bias=use_bias)       # (16, 16, 512)
+    e5 = downconv(e4, 512, activation=True, norm_type=nt, use_bias=use_bias)       # (8, 8, 512)
+    e6 = downconv(e5, 512, activation=True, norm_type=nt, use_bias=use_bias)       # (4, 4, 512)
+    e7 = downconv(e6, 512, activation=True, norm_type=nt, use_bias=use_bias)       # (2, 2, 512)
     
     # innermost
-    e8 = downconv(e7, 512, activation=True, norm_type='none')           # (1 x 1 x 512)
-    d8 = upconv(e8, 512, norm_type=nt, dropout=False)           # (2 x 2 x 512)
+    e8 = downconv(e7, 512, activation=True, norm_type='none', use_bias=use_bias)   # (1 x 1 x 512)
+    d8 = upconv(e8, 512, norm_type=nt, dropout=False, use_bias=use_bias)           # (2 x 2 x 512)
 
-    d7 = upconv([d8, e7], 512, norm_type=nt, dropout=True)      # (4, 4, 512)
-    d6 = upconv([d7, e6], 512, norm_type=nt, dropout=True)      # (8, 8, 512)
-    d5 = upconv([d6, e5], 512, norm_type=nt, dropout=True)      # (16, 16, 512)
-    d4 = upconv([d5, e4], 256, norm_type=nt, dropout=False)     # (32, 32, 256)
-    d3 = upconv([d4, e3], 128, norm_type=nt, dropout=False)     # (64, 64, 128)
-    d2 = upconv([d3, e2],  64, norm_type=nt, dropout=False)     # (128, 128, 64)
-    d1 = upconv([d2, e1], oc, batch_norm='none', dropout=False)         # (256, 256, output_channels)
+    d7 = upconv([d8, e7], 512, norm_type=nt, dropout=True, use_bias=use_bias)      # (4, 4, 512)
+    d6 = upconv([d7, e6], 512, norm_type=nt, dropout=True, use_bias=use_bias)      # (8, 8, 512)
+    d5 = upconv([d6, e5], 512, norm_type=nt, dropout=True, use_bias=use_bias)      # (16, 16, 512)
+    d4 = upconv([d5, e4], 256, norm_type=nt, dropout=False, use_bias=use_bias)     # (32, 32, 256)
+    d3 = upconv([d4, e3], 128, norm_type=nt, dropout=False, use_bias=use_bias)     # (64, 64, 128)
+    d2 = upconv([d3, e2],  64, norm_type=nt, dropout=False, use_bias=use_bias)     # (128, 128, 64)
+    d1 = upconv([d2, e1], oc, norm_type='none', dropout=False)                     # (256, 256, output_channels)
     op = Activation('tanh')(d1)
 
     return inputs, op
