@@ -6,9 +6,35 @@ Download facades dataset:
 ```
 bash download_dataset.sh facades
 ```
+```
+mkdir data/facades_processed
+python preprocess.py
+```
 
 
 ### Implementation Notes
+
+- [x] switch out generator
+- [x] switch out discriminator (check patch size)
+- [x] delete obsolete model code in pix2pix.py
+- [x] rm superfluous input to gan
+- [x] sample discriminator predictions
+- [x] check 32x32 patch size is correct
+- [x] implement instance norm
+- [x] check biases in generator
+- [x] is generator maximising discriminator loss? (i've got a feeling ti might be opposite)
+- [x] should discriminator/generator train switch be at batch level or epoch level? yes
+- [x] are the discriminators weights are being updated correctly in gan? yes, see `check_discriminator_weights_match`
+- [x] check loss parsing
+- [x] write training progress to disk
+- [x] check data augmentation
+- [x] switch out data loader
+- [ ] learning rate decay (see options pytorch)
+- [ ] check hyperparams
+- [ ] implement instance normalisation with from keras_contrib.layers.normalization import InstanceNormalization
+
+
+
 
 
 What is a ReLU?
@@ -47,6 +73,23 @@ What is softmax function?
 
 What is entropy?
 
+What is the receptive field of a convolutional neural network?
+- Theoretical receptive field (RF): 
+    - https://medium.com/mlreview/a-guide-to-receptive-field-arithmetic-for-convolutional-neural-networks-e0f514068807
+    - https://mathematica.stackexchange.com/questions/133927/how-to-compute-the-receptive-field-of-a-neuron/151825#151825
+- Effective receptive field (ERF):
+    - https://papers.nips.cc/paper/6203-understanding-the-effective-receptive-field-in-deep-convolutional-neural-networks.pdf
+
+What is the difference between the L1 norm and the L2 norm
+
+Whats is Jensen–Shannon divergence?
+
+What is the central limit theorem (CLT)?
+
+What is earth-mover distance (EM)?
+
+What is the Lipschitz condition and why do standar feed-forward neural nets satisfy it?
+
 What is cross-entropy loss?
 
 What is the difference between **fractionally-strided convolution**  and **dilated convolution**? 
@@ -54,6 +97,8 @@ What is the difference between **fractionally-strided convolution**  and **dilat
 Which layers should include bias?
 
 Why are only 2 output channels used in colorization?
+
+
 
 
 ### References
