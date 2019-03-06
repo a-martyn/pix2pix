@@ -92,7 +92,7 @@ def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1):
     
     oc = output_channels
     nt = norm_type
-    use_bias = nt == 'instance'  # use bias if using instance normalisation
+    use_bias = nt != 'batch'  # no need to use bias as BatchNorm has affine parameters
     
     # ----------------------------------------------------------------
     # U-net

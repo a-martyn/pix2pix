@@ -55,7 +55,8 @@ def patchgan70(input_size=(256, 256, 3)):
     x = conv_layer(x, 512, 4, strides=1, batch_norm=True)          # ( 32,  32, 512) TRF=46 
     
     op = Conv2D(1, 4, strides=1, padding='same')(x)                # ( 32,   32,  1) TRF=70
-    op = Activation('sigmoid')(op)
+    # no activation because using BCE with logits
+    #op = Activation('sigmoid')(op)
     
     inputs=[img_A, img_B]
     outputs=[op]

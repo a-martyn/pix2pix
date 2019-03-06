@@ -1,3 +1,7 @@
+results/facades/images
+results/artworks
+results/facades_old
+
 # DS store
 .DS_Store
 /.DS_Store
