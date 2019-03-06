@@ -1,7 +1,9 @@
 import tensorflow as tf
+import tensorflow.keras.backend as K
 from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
+
 
 
 def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True):
@@ -54,7 +56,7 @@ def patchgan70(input_size=(256, 256, 3)):
     x = conv_layer(x, 256, 4, strides=2, batch_norm=True)          # ( 32,  32, 256) TRF=22
     x = conv_layer(x, 512, 4, strides=1, batch_norm=True)          # ( 32,  32, 512) TRF=46 
     
-    op = Conv2D(1, 4, strides=1, padding='same')(x)                # ( 32,   32,  1) TRF=70
+    op = Conv2D(1, 4, strides=1, padding='same', name='D_logits')(x)                # ( 32,   32,  1) TRF=70
     # no activation because using BCE with logits
     #op = Activation('sigmoid')(op)
     
@@ -62,3 +64,13 @@ def patchgan70(input_size=(256, 256, 3)):
     outputs=[op]
     return inputs, outputs
 
+
+def bceWithLogitsLoss(y_true, y_logits):
+    """
+    Equivalent to PyTorch's nn.BCEWithLogitsLoss
+    """
+    return K.binary_crossentropy(
+        y_true,
+        y_logits,
+        from_logits=True
+    )

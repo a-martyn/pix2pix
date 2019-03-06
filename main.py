@@ -8,11 +8,14 @@ from tensorflow.python.keras.engine.network import Network
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from model.data_loader import dataLoader
 from model.generator_pix2pix import unet_pix2pix as build_generator
+from model.discriminator_patchgan import bceWithLogitsLoss
 from model.discriminator_patchgan import patchgan70 as build_discriminator
-from evaluate import sample_images
+from evaluate import evaluate
+from utils import Metrics
 
 
 # GAN SETUP
@@ -37,31 +40,22 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 """
 
 
-def BCEWithLogitsLoss(y_true, y_logits):
-    """
-    Equivalent to PyTorch's nn.BCEWithLogitsLoss
-    """
-    loss = tf.losses.sigmoid_cross_entropy(
-        y_true,
-        y_preds,
-        label_smoothing=0  # TODO: try 0.1 value
-    )
-    return loss
-
 # Options
 # ---------------------------------------------------------
 parser = argparse.ArgumentParser()
 parser.add_argument('--title', type=str, required=True, help='Title used to name results of this experiment')
 parser.add_argument('--norm_type', type=str, default='instance', help='Type of normalisation used in generator model [instance, batch]')
-parser.add_argument('--d_loss', type=str, default='instance', help='Type of loss used for discriminator model [SCE, MSE]')
+parser.add_argument('--d_loss', type=str, default='BCE', help='Type of loss used for discriminator model [BCE, MSE]')
 args = parser.parse_args()
 
 experiment_title = args.title
 norm_type = args.norm_type
 
-if args.d_loss == 'SCE':
-    d_loss_fn = BCEWithLogitsLoss
+if args.d_loss == 'BCE':
+    print('USING BCE Loss')
+    d_loss_fn = bceWithLogitsLoss
 elif args.d_loss == 'MSE':
+    print('USING MSE Loss')
     d_loss_fn = 'mean_squared_error'
 else:
     raise NotImplementedError(f'Supported d_loss arg: [SCE, MSE]')
@@ -80,7 +74,8 @@ L1_loss_weight = 100
 GAN_loss_weight = 1
 
 dataset_name = 'facades'
-logs_pth = f'results/{dataset_name}/{experiment_title}.csv'
+train_metrics_pth = f'results/{dataset_name}/{experiment_title}_train.csv'
+val_metrics_pth = f'results/{dataset_name}/{experiment_title}_val.csv'
 sample_dir = f'results/{dataset_name}/images'
 train_pth = 'data/facades_processed/train'
 val_pth = 'data/facades_processed/val'
@@ -121,9 +116,8 @@ val_loader = dataLoader(val_pth, val_generator,
 inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz)
 discriminator = Model(inputs_dsc, outputs_dsc, name='discriminator')
 
-optimizer_d = Adam(lr=d_lr, beta_1=d_beat1)
-discriminator.compile(loss=d_loss_fn, optimizer=optimizer_d, 
-                      metrics=['accuracy'])
+optimizer_d = Adam(lr=d_lr, beta_1=d_beta1)
+discriminator.compile(loss=d_loss_fn, optimizer=optimizer_d, metrics=['accuracy'])
 discriminator.summary()
 
 # Debug 1/3: Record trainable weights in discriminator
@@ -166,9 +160,13 @@ assert(len(discriminator._collected_trainable_weights) == ntrainable_dsc)
 assert(len(gan._collected_trainable_weights) == ntrainable_gen)
 
 
+print(f'discriminator.metrics_names: {discriminator.metrics_names}')
+print(f'gan.metrics_names: {gan.metrics_names}')
+
 # Train
 # --------------------------------------------------------
-metrics = Metrics(logs_pth)
+train_metrics = Metrics(train_metrics_pth)
+val_metrics = Metrics(val_metrics_pth)
 start_time = datetime.datetime.now()
 
 for epoch in range(epochs):
@@ -202,20 +200,20 @@ for epoch in range(epochs):
         elapsed_time = datetime.datetime.now() - start_time
         # Plot the progress
         
-        metrics.add({
+        train_metrics.add({
             'epoch': epoch,
             'batch': batch,
             'D_loss': d_loss[0],
             'D_acc': d_loss[1],
-            'G_L1_loss': g_loss[0],
-            'G_GAN_loss': g_loss[1],
-            'G_D_loss': g_loss[2],
+            'G_total_loss': g_loss[0],
+            'G_L1_loss': g_loss[1],
+            'G_Disc_loss': g_loss[2],
             'time': elapsed_time
         })
 
 
         # If at save interval => save generated image samples
-        if batch_i % sample_interval == 0:
-            metrics.to_csv()
-            sample_images(gan, val_loader, sample_dir, epoch, batch, 
-                          experiment_title)
+        if batch % sample_interval == 0:
+            train_metrics.to_csv()
+            y_true_fake = np.zeros((3, ) + discriminator_output_sz, dtype=np.float32) # all fake
+            evaluate(gan, discriminator, val_loader, y_true_fake, sample_dir, epoch, batch, experiment_title, val_metrics)

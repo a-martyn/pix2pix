@@ -118,6 +118,6 @@ def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1):
     d3 = upconv([d4, e3], 128, norm_type=nt, dropout=False, use_bias=use_bias)     # (64, 64, 128)
     d2 = upconv([d3, e2],  64, norm_type=nt, dropout=False, use_bias=use_bias)     # (128, 128, 64)
     d1 = upconv([d2, e1], oc, norm_type='none', dropout=False)                     # (256, 256, output_channels)
-    op = Activation('tanh')(d1)
+    op = Activation('tanh', name='G_activations')(d1)
 
     return inputs, op
