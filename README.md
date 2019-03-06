@@ -33,7 +33,7 @@ python preprocess.py
 - [ ] check hyperparams
 - [ ] implement instance normalisation with from keras_contrib.layers.normalization import InstanceNormalization
 
-
+- [ ] implement sce and mse loss
 
 
 
