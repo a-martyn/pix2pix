@@ -65,7 +65,9 @@ else:
 # GPUs available
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
+d_acc_min = 1.0
 input_sz = (256, 256, 3)
+discriminator_output_sz = (32, 32, 1)
 epochs=200
 batch_size=1
 sample_interval=200
@@ -170,33 +172,30 @@ val_metrics = Metrics(val_metrics_pth)
 start_time = datetime.datetime.now()
 
 for epoch in range(epochs):
-    
-    # Adversarial loss ground truths (patchgan70 outputs 32x32x1)
-    discriminator_output_sz = (32, 32, 1)
-    real = np.ones((batch_size, ) + discriminator_output_sz)
-    fake = np.zeros((batch_size, ) + discriminator_output_sz)
-
     for batch in range(n_samples):
+        # ganhack2: modified loss function/label flip real => 0
+        # ganhack: label smoothing
+        real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.3  # label smoothing: real => 0.0 - 0.3
+        fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
         
         inputs, targets = next(train_loader)
-        
-        # Eval discriminator
-        # Condition on x and generate a translated version
         outputs, _ = gan.predict(inputs)
-        d_loss_real = discriminator.evaluate([targets, inputs], real, verbose=0)
-        d_loss_fake = discriminator.evaluate([outputs, inputs], fake, verbose=0)
-        d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)       
         
-        d_trained = False
-        if d_loss[1] < 0.5:
+#         # Eval discriminator
+#         d_loss_real = discriminator.evaluate([targets, inputs], real, verbose=0)
+#         d_loss_fake = discriminator.evaluate([outputs, inputs], fake, verbose=0)
+#         d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)       
         
-            #  Train Discriminator
-            # ----------------------------------------------
-            d_trained = True
-            # Train the discriminators (original images = real / generated = Fake)
-            d_loss_real = discriminator.train_on_batch([targets, inputs], real)
-            d_loss_fake = discriminator.train_on_batch([outputs, inputs], fake)
-            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+#         d_trained = False
+#         if d_loss[1] <= d_acc_min:
+        
+        #  Train Discriminator
+        # ----------------------------------------------
+        d_trained = True
+        # Train the discriminators (original images = real / generated = Fake)
+        d_loss_real = discriminator.train_on_batch([targets, inputs], real)
+        d_loss_fake = discriminator.train_on_batch([outputs, inputs], fake)
+        d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
         
         #  Train Generator
@@ -224,4 +223,5 @@ for epoch in range(epochs):
         # If at save interval => save generated image samples
         if batch % sample_interval == 0:
             train_metrics.to_csv()
+            real_labels = np.zeros((batch_size, ) + discriminator_output_sz) # no label smoothing at test time
             evaluate(gan, discriminator, val_loader, real, sample_dir, epoch, batch, experiment_title, val_metrics)

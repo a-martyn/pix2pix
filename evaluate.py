@@ -36,7 +36,7 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
         input_, target = next(data_loader)
         
         output_gen, is_real_logit = gan.predict(input_)
-        d_loss = discriminator.evaluate([output_gen, input_], real-1, verbose=0)
+        d_loss = discriminator.evaluate([output_gen, input_], real+1, verbose=0)
         g_loss = gan.evaluate(input_, [target, real], verbose=0)
 
         # Create heatmap from patchgan discriminator output
@@ -45,7 +45,7 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
         d_activations = sigmoid(is_real_logit[0])    # TODO: consider best activation when other losses are used
         patch = resize(d_activations, (256, 256, 1), 
                        order=0, preserve_range=True, anti_aliasing=False) 
-        patch = np.asarray(normalize(grey2rgb(patch[:, :, 0])))
+        patch = np.asarray(grey2rgb(patch[:, :, 0]))
         
         inputs += [input_]
         outputs_gen += [output_gen]
@@ -72,7 +72,7 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
     outputs_gen = np.concatenate(outputs_gen, axis=0)
     targets = np.concatenate(targets, axis=0)
     is_real = np.concatenate(is_real, axis=0)
-    patches = np.stack(patches, axis=0)
+    patches = normalize(np.stack(patches, axis=0))
 
     # Concat images
     imgs = np.concatenate([inputs, outputs_gen, patches, targets])
