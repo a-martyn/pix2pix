@@ -83,7 +83,7 @@ train_pth = 'data/facades_processed/train'
 val_pth = 'data/facades_processed/val'
 n_samples = 400
 
-d_lr = 0.0002
+d_lr = 0.00002
 d_beta1 = 0.5
 g_lr = 0.0002
 g_beta1 = 0.5
@@ -193,8 +193,8 @@ for epoch in range(epochs):
         # ----------------------------------------------
         d_trained = True
         # Train the discriminators (original images = real / generated = Fake)
-        d_loss_real = discriminator.train_on_batch([targets, inputs], real)
-        d_loss_fake = discriminator.train_on_batch([outputs, inputs], fake)
+        d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+        d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
         d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
         
@@ -211,8 +211,10 @@ for epoch in range(epochs):
             'epoch': epoch,
             'batch': batch,
             'D_trained': d_trained,
-            'D_loss': d_loss[0],
-            'D_acc': d_loss[1],
+            'D_loss_real': d_loss,
+            'D_loss_real': d_loss_real,
+            'D_loss_fake': d_loss_fake,
+            'D_acc_fake': d_acc_fake,
             'G_total_loss': g_loss[0],
             'G_L1_loss': g_loss[1],
             'G_Disc_loss': g_loss[2],
