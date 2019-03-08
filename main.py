@@ -179,16 +179,24 @@ for epoch in range(epochs):
     for batch in range(n_samples):
         
         inputs, targets = next(train_loader)
-        #  Train Discriminator
-        # ----------------------------------------------
-
+        
+        # Eval discriminator
         # Condition on x and generate a translated version
         outputs, _ = gan.predict(inputs)
-
-        # Train the discriminators (original images = real / generated = Fake)
-        d_loss_real = discriminator.train_on_batch([targets, inputs], real)
-        d_loss_fake = discriminator.train_on_batch([outputs, inputs], fake)
-        d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+        d_loss_real = discriminator.evaluate([targets, inputs], real, verbose=0)
+        d_loss_fake = discriminator.evaluate([outputs, inputs], fake, verbose=0)
+        d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)       
+        
+        d_trained = False
+        if d_loss[1] < 0.5:
+        
+            #  Train Discriminator
+            # ----------------------------------------------
+            d_trained = True
+            # Train the discriminators (original images = real / generated = Fake)
+            d_loss_real = discriminator.train_on_batch([targets, inputs], real)
+            d_loss_fake = discriminator.train_on_batch([outputs, inputs], fake)
+            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
         
         #  Train Generator
@@ -203,6 +211,7 @@ for epoch in range(epochs):
         train_metrics.add({
             'epoch': epoch,
             'batch': batch,
+            'D_trained': d_trained,
             'D_loss': d_loss[0],
             'D_acc': d_loss[1],
             'G_total_loss': g_loss[0],
@@ -215,5 +224,4 @@ for epoch in range(epochs):
         # If at save interval => save generated image samples
         if batch % sample_interval == 0:
             train_metrics.to_csv()
-#             y_true_fake = np.zeros((1, ) + discriminator_output_sz, dtype=np.float32) # all fake
             evaluate(gan, discriminator, val_loader, real, sample_dir, epoch, batch, experiment_title, val_metrics)

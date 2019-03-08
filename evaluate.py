@@ -28,14 +28,16 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
     targets = []
     is_real = []
     patches = []
+    
+    print('\nVALIDATION')
     for sample in range(3):
         # Run a forward pass
         # -----------------------
         input_, target = next(data_loader)
         
         output_gen, is_real_logit = gan.predict(input_)
-        d_loss = discriminator.evaluate([output_gen, input_], real-1)
-        g_loss = gan.evaluate(input_, [target, real])
+        d_loss = discriminator.evaluate([output_gen, input_], real-1, verbose=0)
+        g_loss = gan.evaluate(input_, [target, real], verbose=0)
 
         # Create heatmap from patchgan discriminator output
         # -----------------------
@@ -53,7 +55,6 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
  
         # Record metrics
         # -----------------------
-        print('\nVALIDATION')
         metrics.add({
                 'epoch': epoch,
                 'batch': batch,
@@ -64,8 +65,8 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
                 'G_L1_loss': g_loss[1],
                 'G_Disc_loss': g_loss[2]
         })
-        print('\n')
         metrics.to_csv() 
+    print('\n')
 
     inputs = np.concatenate(inputs, axis=0)
     outputs_gen = np.concatenate(outputs_gen, axis=0)
@@ -92,6 +93,8 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
             else:
                 axs[i, j].set_title(titles[i])
             cnt += 1
-    fig.savefig(f'{sample_dir}/{str(epoch).zfill(4)}_{batch}_{experiment_title}.png')
+    save_freq = 10
+    fig.savefig(f'{sample_dir}/{str((epoch//save_freq)*save_freq).zfill(4)}_{experiment_title}.png')
+    fig.savefig(f'{sample_dir}/_latest_{experiment_title}.png')
     plt.close()
     return
