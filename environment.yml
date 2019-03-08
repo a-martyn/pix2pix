@@ -1,16 +1,14 @@
-name: colorgen_5
+name: pix2pix
 dependencies:
-  - fastprogress=0.1.18=py_0
   - python=3.*
   - tensorflow-gpu
-  - tqdm
   - opencv
   - pillow
   - matplotlib
   - numpy
   - pandas
   - seaborn
-  - scikit-learn
   - jupyter
   - pip:
+    - scikit-image==0.14.2
     - git+https://www.github.com/keras-team/keras-contrib.git

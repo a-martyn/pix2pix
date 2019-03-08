@@ -15,8 +15,10 @@ def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True):
     )
     bn_kwargs = dict(
         axis=-1,       # because data_loader returns channels last
-        momentum=0.9,  # equivalent to pytorch defaults used by author 
-        epsilon=1e-5   # match pytorch/torch defaults
+        momentum=0.1,  # equivalent to pytorch defaults used by author 
+        epsilon=1e-5,   # match pytorch/torch defaults
+        gamma_initializer=tf.random_normal_initializer(1.0, 0.02),
+        trainable=True
     )
     
     x = Conv2D(out_channels, kernel_size, strides=strides, **conv_kwargs)(x)

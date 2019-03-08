@@ -2,6 +2,7 @@ import numpy as np
 import os
 import skimage.io as io
 import skimage.transform as trans
+import tensorflow as tf
 from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
@@ -9,17 +10,51 @@ from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from tensorflow.contrib.layers import instance_norm
 # from tensorflow.python.keras.layers import Lambda
 
-def instanceNorm(x):
-    x = instance_norm(x, center=False, scale=False, trainable=False)
-    return x
 
-def normalisation(x, norm_type='instance'):
+def tfdropout(x):
+    """
+    Dropout applied at training AND inference time.
+
+    Can't use keras implementation 
+    due to TypeError: ('Keyword not understood': 'training')
+    """
+    return tf.layers.dropout(x, rate=0.5, training=True)
+
+
+def instanceNorm(x):
+    """
+    Normalisation using statistics of the current batch at both traininf
+    and inference time. Implemented by setting training=True.
+    
+    Is Instance Normalisation so long as batch_size == 1. 
+    https://www.tensorflow.org/api_docs/python/tf/contrib/layers/instance_norm
+    but didn't seem to work in practice
+    
+    Note:
+    tf.keras.layers.BatchNormalization wasn't usable in tf v1.12 because it didn't
+    recognise `training` argument, despite docs saying it does.
+    """
+    return tf.layers.batch_normalization(
+        x, 
+        axis=-1, 
+        epsilon=1e-5, 
+        momentum=0.1, 
+        # apply at both training AND inference time.
+        training=True,
+        # To achieve instance normalisation normalise each sample individually
+        # For explanation of instance norm see Fig.2 here: https://arxiv.org/pdf/1803.08494.pdf
+        virtual_batch_size=1,
+        gamma_initializer=tf.random_normal_initializer(1.0, 0.02)
+    )
+
+def normalisation(x, norm_type='batch'):
     bn_kwargs = dict(
         axis=-1,         # because data_loader returns channels last
-        momentum=0.9,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
+        momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
         epsilon=1e-5,    # match pytorch defaults
+        gamma_initializer=tf.random_normal_initializer(1.0, 0.02),
         trainable=True
-    )   
+    )
     
     if norm_type == 'batch':
         x = BatchNormalization(**bn_kwargs)(x)
@@ -48,6 +83,7 @@ def downconv(x, out_channels, activation=True, norm_type='instance', use_bias=Tr
 
 
 def upconv(x, out_channels, norm_type='instance', dropout=False, use_bias=True):
+    
     conv_kwargs = dict(
         use_bias=use_bias,
         padding='same', 
@@ -63,7 +99,7 @@ def upconv(x, out_channels, norm_type='instance', dropout=False, use_bias=True):
     activation: x = ReLU()(x)
     x = Conv2DTranspose(out_channels, 4, strides=2, **conv_kwargs)(x)
     x = normalisation(x, norm_type=norm_type)
-    if dropout:    x = Dropout(0.5)(x)
+    if dropout: x = Lambda(tfdropout)(x)
     return x
     
 

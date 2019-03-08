@@ -16,54 +16,64 @@ def scale(x):
 def sigmoid(x):
     return 1/(1+np.exp(-x))
 
-def evaluate(gan, discriminator, data_loader, y_true_fake, sample_dir, epoch, batch, experiment_title, metrics):
+def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, experiment_title, metrics):
     """
     Sample 3 images from generator and save to sample_dir
     """
     # ensure output dir exists
     os.makedirs(sample_dir, exist_ok=True)
 
-    # Run a forward pass
-    # -----------------------
-    inputs, targets = next(data_loader)
-    # because last batch in epoch can be smaller, skip it
-    if inputs.shape[0] != 3:
-        inputs, targets = next(data_loader)
-    
-    outputs_gen, is_real_logit = gan.predict(inputs)
-    d_loss = discriminator.evaluate([outputs_gen, inputs], y_true_fake)
-    g_loss = gan.evaluate(inputs, [targets, y_true_fake])
+    inputs = []
+    outputs_gen = []
+    targets = []
+    is_real = []
+    patches = []
+    for sample in range(3):
+        # Run a forward pass
+        # -----------------------
+        input_, target = next(data_loader)
+        
+        output_gen, is_real_logit = gan.predict(input_)
+        d_loss = discriminator.evaluate([output_gen, input_], real-1)
+        g_loss = gan.evaluate(input_, [target, real])
 
-    # Record metrics
-    # -----------------------
-    print('\nVALIDATION')
-    metrics.add({
-            'epoch': epoch,
-            'batch': batch,
-            'D_loss': d_loss[0],
-            'D_acc': d_loss[1],
-            'G_total_loss': g_loss[0],
-            'G_L1_loss': g_loss[1],
-            'G_Disc_loss': g_loss[2]
-    })
-    print('\n')
-    metrics.to_csv()    
-    
-    # Create heatmap from patchgan discriminator output
-    # -----------------------
-    
-    #print(f'Patch Size: {is_real_logit[0].shape}')
-    
-    # Apply sigmoid because model returns logits 
-    # TODO: consider bes activation when other losses are used
-    is_real = [sigmoid(x) for x in is_real_logit]
-    patches = [resize(x, (256, 256, 1), order=0, preserve_range=True, anti_aliasing=False) 
-               for x in is_real]
-    patches = [normalize(grey2rgb(p[:, :, 0])) for p in patches]
-    
-    patches = np.asarray(patches)
+        # Create heatmap from patchgan discriminator output
+        # -----------------------
+        # Apply sigmoid because model returns logits 
+        d_activations = sigmoid(is_real_logit[0])    # TODO: consider best activation when other losses are used
+        patch = resize(d_activations, (256, 256, 1), 
+                       order=0, preserve_range=True, anti_aliasing=False) 
+        patch = np.asarray(normalize(grey2rgb(patch[:, :, 0])))
+        
+        inputs += [input_]
+        outputs_gen += [output_gen]
+        targets += [target]
+        is_real += [d_activations]
+        patches += [patch]
+ 
+        # Record metrics
+        # -----------------------
+        print('\nVALIDATION')
+        metrics.add({
+                'epoch': epoch,
+                'batch': batch,
+                'sample': sample,
+                'D_loss': d_loss[0],
+                'D_acc': d_loss[1],
+                'G_total_loss': g_loss[0],
+                'G_L1_loss': g_loss[1],
+                'G_Disc_loss': g_loss[2]
+        })
+        print('\n')
+        metrics.to_csv() 
 
-    # Stack images
+    inputs = np.concatenate(inputs, axis=0)
+    outputs_gen = np.concatenate(outputs_gen, axis=0)
+    targets = np.concatenate(targets, axis=0)
+    is_real = np.concatenate(is_real, axis=0)
+    patches = np.stack(patches, axis=0)
+
+    # Concat images
     imgs = np.concatenate([inputs, outputs_gen, patches, targets])
     imgs = denormalize(imgs)
 

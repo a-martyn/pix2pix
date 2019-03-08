@@ -106,7 +106,7 @@ val_generator = ImageDataGenerator(
     validation_split=0.0
 )
 val_loader = dataLoader(val_pth, val_generator, 
-                        batch_sz=3, img_sz=input_sz[:2])
+                        batch_sz=1, img_sz=input_sz[:2])
 
 
 
@@ -215,5 +215,5 @@ for epoch in range(epochs):
         # If at save interval => save generated image samples
         if batch % sample_interval == 0:
             train_metrics.to_csv()
-            y_true_fake = np.zeros((3, ) + discriminator_output_sz, dtype=np.float32) # all fake
-            evaluate(gan, discriminator, val_loader, y_true_fake, sample_dir, epoch, batch, experiment_title, val_metrics)
+#             y_true_fake = np.zeros((1, ) + discriminator_output_sz, dtype=np.float32) # all fake
+            evaluate(gan, discriminator, val_loader, real, sample_dir, epoch, batch, experiment_title, val_metrics)
