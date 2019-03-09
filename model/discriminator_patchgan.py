@@ -22,11 +22,13 @@ def minibatch_stddev_layer(x, group_size=4):
     return tf.concat([x, y], axis=-1)                       # [NHWC]  Append as new fmap.
 
 
-def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True):
+def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True, 
+               init='random_normal'):
     
     conv_kwargs = dict(
         padding='same',
-        kernel_initializer='he_normal',
+        kernel_initializer=init,
+        bias_initializer=init,
         data_format='channels_last'  # (batch, height, width, channels)
     )
     bn_kwargs = dict(
@@ -43,7 +45,7 @@ def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True):
     return x
     
     
-def patchgan70(input_size=(256, 256, 3), minibatch_std=False):
+def patchgan70(input_size=(256, 256, 3), init_gain=0.02, minibatch_std=False):
     """
     PatchGAN with a 70x70 receptive field. This is used throughout paper
     except where a specific receptive field size is stated. 
@@ -62,6 +64,7 @@ def patchgan70(input_size=(256, 256, 3), minibatch_std=False):
     """
 
     leak_slope = 0.2
+    init = tf.keras.initializers.RandomNormal(mean=0.0, stddev=init_gain)
 
     # MODEL
     # ---------------------------------------------
@@ -69,15 +72,15 @@ def patchgan70(input_size=(256, 256, 3), minibatch_std=False):
     img_B = Input(input_size)
     
     x = Concatenate(axis=-1)([img_A, img_B])                       # (256, 256, real_channels+fake_channels)
-    x = conv_layer(x,  64, 4, strides=2, batch_norm=False)         # (128, 128,  64) TRF=4
-    x = conv_layer(x, 128, 4, strides=2, batch_norm=True)          # ( 64,  64, 128) TRF=10
-    if minibatch_std: x = Lambda(minibatch_stddev_layer)(x)
-    x = conv_layer(x, 256, 4, strides=2, batch_norm=True)          # ( 32,  32, 256) TRF=22
-    x = conv_layer(x, 512, 4, strides=1, batch_norm=True)          # ( 32,  32, 512) TRF=46 
+    x = conv_layer(x,  64, 4, strides=2, batch_norm=False, init=init)         # (128, 128,  64) TRF=4
+    x = conv_layer(x, 128, 4, strides=2, batch_norm=True, init=init)          # ( 64,  64, 128) TRF=10
+    #if minibatch_std: x = Lambda(minibatch_stddev_layer)(x)
+    x = conv_layer(x, 256, 4, strides=2, batch_norm=True, init=init)          # ( 32,  32, 256) TRF=22
+    x = conv_layer(x, 512, 4, strides=1, batch_norm=True, init=init)          # ( 32,  32, 512) TRF=46 
     
-    op = Conv2D(1, 4, strides=1, padding='same', name='D_logits')(x)                # ( 32,   32,  1) TRF=70
+    op = Conv2D(1, 4, strides=1, padding='same', name='D_logits', 
+                kernel_initializer=init, bias_initializer=init)(x)           # ( 32,   32,  1) TRF=70
     # no activation because using BCE with logits
-    #op = Activation('sigmoid')(op)
     
     inputs=[img_A, img_B]
     outputs=[op]

@@ -1,16 +1,15 @@
-name: colorway-cpu
+name: pix2pix
 dependencies:
   - python=3.*
   - tensorflow
-  - tqdm
+  - nomkl       # gets rid of Error #15: Initializing libiomp5.dylib
   - opencv
   - pillow
   - matplotlib
   - numpy
   - pandas
   - seaborn
-  - scikit-learn
   - jupyter
   - pip:
+    - scikit-image==0.14.2
     - git+https://www.github.com/keras-team/keras-contrib.git
-    - fastprogress

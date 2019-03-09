@@ -1,11 +1,10 @@
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 import pandas as pd
 import os
-import cv2
-from sklearn.cluster import KMeans
 
-
+# from concurrent.futures import ProcessPoolExecutor, as_completed
+# import cv2
+# from sklearn.cluster import KMeans
 # from tqdm import tqdm
 # from fastprogress import master_bar, progress_bar
 
