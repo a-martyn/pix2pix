@@ -18,6 +18,8 @@ from evaluate import evaluate
 from utils import Metrics
 
 
+
+
 # GAN SETUP
 # ---------------------------------------------------------
 """
@@ -46,19 +48,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--title', type=str, required=True, help='Title used to name results of this experiment')
 parser.add_argument('--norm_type', type=str, default='instance', help='Type of normalisation used in generator model [instance, batch]')
 parser.add_argument('--d_loss', type=str, default='BCE', help='Type of loss used for discriminator model [BCE, MSE]')
+parser.add_argument('--mbstd', action='store_true', help='Bool: Use minibatch standard deviation to increase variance')
 args = parser.parse_args()
 
 experiment_title = args.title
 norm_type = args.norm_type
 
 if args.d_loss == 'BCE':
-    print('USING BCE Loss')
+    print('USING: BCE Loss')
     d_loss_fn = bceWithLogitsLoss
 elif args.d_loss == 'MSE':
-    print('USING MSE Loss')
+    print('USING: MSE Loss')
     d_loss_fn = 'mean_squared_error'
 else:
     raise NotImplementedError(f'Supported d_loss arg: [SCE, MSE]')
+
+minibatch_std=args.mbstd
+if minibatch_std: print('\nUSING: minibatch_stddev_layer')
 
 # Parameters
 # ---------------------------------------------------------
@@ -69,7 +75,7 @@ d_acc_min = 1.0
 input_sz = (256, 256, 3)
 discriminator_output_sz = (32, 32, 1)
 epochs=200
-batch_size=1
+batch_size=4
 sample_interval=200
 
 L1_loss_weight = 100
@@ -99,7 +105,7 @@ train_generator = ImageDataGenerator(
     validation_split=0.0
 )
 train_loader = dataLoader(train_pth, train_generator, 
-                          batch_sz=1, img_sz=input_sz[:2])
+                          batch_sz=batch_size, img_sz=input_sz[:2])
 
 val_generator = ImageDataGenerator(
     rescale=1./255,
@@ -115,7 +121,8 @@ val_loader = dataLoader(val_pth, val_generator,
 
 # Build and compile Discriminator
 # ---------------------------------------------------------
-inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz)
+inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz, 
+                                              minibatch_std=minibatch_std)
 discriminator = Model(inputs_dsc, outputs_dsc, name='discriminator')
 
 optimizer_d = Adam(lr=d_lr, beta_1=d_beta1)
@@ -225,5 +232,5 @@ for epoch in range(epochs):
         # If at save interval => save generated image samples
         if batch % sample_interval == 0:
             train_metrics.to_csv()
-            real_labels = np.zeros((batch_size, ) + discriminator_output_sz) # no label smoothing at test time
-            evaluate(gan, discriminator, val_loader, real, sample_dir, epoch, batch, experiment_title, val_metrics)
+            real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
+            evaluate(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)

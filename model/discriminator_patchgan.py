@@ -5,6 +5,22 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
 
 
+def minibatch_stddev_layer(x, group_size=4):
+    """
+    Adapted from: https://github.com/tkarras/progressive_growing_of_gans/blob/master/networks.py
+    """
+    group_size = tf.minimum(group_size, tf.shape(x)[0])     # Minibatch must be divisible by (or smaller than) group_size.
+    s = x.shape                                             # [NHWC]  Input shape.
+    y = tf.reshape(x, [group_size, -1, s[1], s[2], s[3]])   # [GMHWC] Split minibatch into M groups of size G.
+    y = tf.cast(y, tf.float32)                              # [GMHWC] Cast to FP32.
+    y -= tf.reduce_mean(y, axis=0, keepdims=True)           # [GMHWC] Subtract mean over group.
+    y = tf.reduce_mean(tf.square(y), axis=0)                # [MHWC]  Calc variance over group.
+    y = tf.sqrt(y + 1e-8)                                   # [MHWC]  Calc stddev over group.
+    y = tf.reduce_mean(y, axis=[1,2,3], keepdims=True)      # [M111]  Take average over fmaps and pixels.
+    y = tf.cast(y, x.dtype)                                 # [M111]  Cast back to original data type.
+    y = tf.tile(y, [group_size, s[1], s[2], 1])             # [NHW1]  Replicate over group and pixels.
+    return tf.concat([x, y], axis=-1)                       # [NHWC]  Append as new fmap.
+
 
 def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True):
     
@@ -27,7 +43,7 @@ def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True):
     return x
     
     
-def patchgan70(input_size=(256, 256, 3)):
+def patchgan70(input_size=(256, 256, 3), minibatch_std=False):
     """
     PatchGAN with a 70x70 receptive field. This is used throughout paper
     except where a specific receptive field size is stated. 
@@ -55,6 +71,7 @@ def patchgan70(input_size=(256, 256, 3)):
     x = Concatenate(axis=-1)([img_A, img_B])                       # (256, 256, real_channels+fake_channels)
     x = conv_layer(x,  64, 4, strides=2, batch_norm=False)         # (128, 128,  64) TRF=4
     x = conv_layer(x, 128, 4, strides=2, batch_norm=True)          # ( 64,  64, 128) TRF=10
+    if minibatch_std: x = Lambda(minibatch_stddev_layer)(x)
     x = conv_layer(x, 256, 4, strides=2, batch_norm=True)          # ( 32,  32, 256) TRF=22
     x = conv_layer(x, 512, 4, strides=1, batch_norm=True)          # ( 32,  32, 512) TRF=46 
     
