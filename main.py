@@ -49,6 +49,8 @@ parser.add_argument('--title', type=str, required=True, help='Title used to name
 parser.add_argument('--norm_type', type=str, default='instance', help='Type of normalisation used in generator model [instance, batch]')
 parser.add_argument('--d_loss', type=str, default='BCE', help='Type of loss used for discriminator model [BCE, MSE]')
 parser.add_argument('--mbstd', action='store_true', help='Bool: Use minibatch standard deviation to increase variance')
+
+parser.add_argument('--batch_size', default=1, type=int)
 args = parser.parse_args()
 
 experiment_title = args.title
@@ -75,11 +77,10 @@ d_acc_min = 1.0
 input_sz = (256, 256, 3)
 discriminator_output_sz = (32, 32, 1)
 epochs=200
-batch_size=4
-sample_interval=200
+batch_size=args.batch_size
+sample_interval=400
 
-L1_loss_weight = 100
-GAN_loss_weight = 1
+lambda_L1 = 100   # weight applied to L1 loss in gan
 
 dataset_name = 'facades'
 train_metrics_pth = f'results/{dataset_name}/{experiment_title}_train.csv'
@@ -89,7 +90,7 @@ train_pth = 'data/facades_processed/train'
 val_pth = 'data/facades_processed/val'
 n_samples = 400
 
-d_lr = 0.00002
+d_lr = 0.0002
 d_beta1 = 0.5
 g_lr = 0.0002
 g_beta1 = 0.5
@@ -118,14 +119,15 @@ val_loader = dataLoader(val_pth, val_generator,
 
 
 
+# Optimizers
+optimizer_d = Adam(lr=d_lr, beta_1=d_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+optimizer_g = Adam(lr=g_lr, beta_1=g_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
 
 # Build and compile Discriminator
 # ---------------------------------------------------------
 inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz, 
                                               minibatch_std=minibatch_std)
 discriminator = Model(inputs_dsc, outputs_dsc, name='discriminator')
-
-optimizer_d = Adam(lr=d_lr, beta_1=d_beta1)
 discriminator.compile(loss=d_loss_fn, optimizer=optimizer_d, metrics=['accuracy'])
 discriminator.summary()
 
@@ -157,9 +159,8 @@ is_real = frozen_discriminator([output_gen, input_gen])
 gan = Model(input_gen, [output_gen, is_real], name='gan')
 gan.summary()
 
-optimizer_g = Adam(lr=g_lr, beta_1=g_beta1)
 gan.compile(loss=['mean_absolute_error', d_loss_fn], 
-            loss_weights=[L1_loss_weight, GAN_loss_weight], 
+            loss_weights=[lambda_L1, 1], 
             optimizer=optimizer_g)
 
 # Debug 3/3: assert that...
@@ -188,21 +189,12 @@ for epoch in range(epochs):
         inputs, targets = next(train_loader)
         outputs, _ = gan.predict(inputs)
         
-#         # Eval discriminator
-#         d_loss_real = discriminator.evaluate([targets, inputs], real, verbose=0)
-#         d_loss_fake = discriminator.evaluate([outputs, inputs], fake, verbose=0)
-#         d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)       
-        
-#         d_trained = False
-#         if d_loss[1] <= d_acc_min:
-        
         #  Train Discriminator
         # ----------------------------------------------
-        d_trained = True
         # Train the discriminators (original images = real / generated = Fake)
         d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
         d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-        d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+        # d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
 
         
         #  Train Generator
@@ -211,22 +203,20 @@ for epoch in range(epochs):
         # Train the generators in GAN setting
         g_loss = gan.train_on_batch([inputs], [targets, real])
 
-        elapsed_time = datetime.datetime.now() - start_time
         # Plot the progress
         
-        train_metrics.add({
-            'epoch': epoch,
-            'batch': batch,
-            'D_trained': d_trained,
-            'D_loss_real': d_loss,
-            'D_loss_real': d_loss_real,
-            'D_loss_fake': d_loss_fake,
-            'D_acc_fake': d_acc_fake,
-            'G_total_loss': g_loss[0],
-            'G_L1_loss': g_loss[1],
-            'G_Disc_loss': g_loss[2],
-            'time': elapsed_time
-        })
+        if batch % 100 == 0:
+            elapsed_time = datetime.datetime.now() - start_time
+            train_metrics.add({
+                'epoch': epoch,
+                'iters': batch,
+                'G_L1': g_loss[1],
+                'G_GAN': g_loss[2],
+                'G_total': g_loss[0],
+                'D_real': d_loss_real,
+                'D_fake': d_loss_fake,
+                'time': elapsed_time
+            })
 
 
         # If at save interval => save generated image samples

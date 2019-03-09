@@ -36,6 +36,47 @@ python preprocess.py
 - [ ] implement sce and mse loss
 
 
+### Param check
+
+https://github.com/affinelayer/pix2pix-tensorflow/blob/master/pix2pix.py
+
+- [x] normalisation : 
+    - momentum: 0.9 -> 0.1
+    - gamma initialisation added   
+- [x] instance normalisation implemented correctly?
+    - training = True (use inference stats)
+- [x] dropout on at test time?
+- [x] generate evaluation samples with batch size 1, to ensure bn stats are same
+- [ ] loss functions
+    - seems to implement label switichin fake=>1 in gan fake => 0 in discrim
+    - applies exponential moving average to losses with decay 0.99
+- [ ] loss weights
+
+## gan hacks
+- [x] one-sided label smoothing
+- [x] minibatch discrimination - implemented as minibatch standard deviation
+- [ ] feature matching
+- [ ] historical averaging
+
+# pytorch ref
+- [x] run pytorch reference
+- [x] match logging
+- [] match params
+- [] match params printout
+- [] copy visualizers
+- [] implement model saving
+- [] save more images
+- [] check hd space
+- [] implement n critic
+- [] run experiments
+
+
+
+
+### Cleanup
+- [ ] conda freeze
+- [ ] report keras training bug on dropout and batch norm layers
+
 
 What is a ReLU?
 
@@ -108,3 +149,75 @@ Why are only 2 output channels used in colorization?
 - https://arxiv.org/pdf/1611.07004.pdf
 - https://richzhang.github.io/ideepcolor/
 - http://richzhang.github.io/colorization/
+
+
+### Pytorch Params
+
+----------------- Options ---------------
+               batch_size: 1                       #      
+                    beta1: 0.5                     #     
+          checkpoints_dir: ./checkpoints                 
+           continue_train: False                         
+                crop_size: 256                     #      
+                 dataroot: ./datasets/facades                   [default: None]
+             dataset_mode: aligned                 ?     
+                direction: BtoA                                 [default: AtoB]
+              display_env: main                          
+             display_freq: 400                     #      
+               display_id: 1                             
+            display_ncols: 4                             
+             display_port: 8097                          
+           display_server: http://localhost              
+          display_winsize: 256                           
+                    epoch: latest                        
+              epoch_count: 1                             
+                 gan_mode: vanilla                 # means bceloss      
+                  gpu_ids: 0                             
+                init_gain: 0.02                    # torch.nn.init.normal_(mean=0.0, std=0.02)    
+                init_type: normal                  # init type normal distribution     
+                 input_nc: 3                             
+                  isTrain: True                                 [default: None]
+                lambda_L1: 100.0                   #     
+                load_iter: 0                                    [default: 0]
+                load_size: 286                           
+                       lr: 0.0002                 #       
+           lr_decay_iters: 50                            
+                lr_policy: linear                        
+         max_dataset_size: inf                           
+                    model: pix2pix                              [default: cycle_gan]
+               n_layers_D: 3                             
+                     name: facades_pix2pix                      [default: experiment_name]
+                      ndf: 64                            
+                     netD: basic                 # => patchgan RF=70        
+                     netG: unet_256              # check        
+                      ngf: 64                            
+                    niter: 100                           
+              niter_decay: 100                           
+               no_dropout: False                # TODO: could check drouput is working        
+                  no_flip: False                         
+                  no_html: False                         
+                     norm: batch               # batch, matched pytorch defaults
+                                               # notes: not confident its applied at inference time by training=True param         
+              num_threads: 4                             
+                output_nc: 3                             
+                    phase: train                         
+                pool_size: 0                             
+               preprocess: resize_and_crop               
+               print_freq: 100                           
+             save_by_iter: False                         
+          save_epoch_freq: 5                             
+         save_latest_freq: 5000                          
+           serial_batches: False                         
+                   suffix:                               
+         update_html_freq: 1000                          
+                  verbose: False                         
+----------------- End -------------------
+dataset [AlignedDataset] was created
+The number of training images = 400
+initialize network with normal
+initialize network with normal
+model [Pix2PixModel] was created
+---------- Networks initialized -------------
+[Network G] Total number of parameters : 54.414 M   # 54,414,019 match
+[Network D] Total number of parameters : 2.769 M    # 2,769,601 match
+-----------------------------------------------

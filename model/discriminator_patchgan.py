@@ -5,6 +5,24 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
 
 
+def batchNorm(x):
+    """
+    """
+    return tf.layers.batch_normalization(
+        x,
+        axis=-1,         # because data_loader returns channels last
+        momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
+        epsilon=1e-5,    # match pytorch defaults
+        beta_initializer='zeros',
+        gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
+        center=True,     # equivalent to affine=True
+        scale=True,      # equivalent to affine=True
+        trainable=True,  
+        # apply at both training AND inference time.
+        training=True
+    )
+
+
 def minibatch_stddev_layer(x, group_size=4):
     """
     Adapted from: https://github.com/tkarras/progressive_growing_of_gans/blob/master/networks.py
@@ -31,16 +49,23 @@ def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True,
         bias_initializer=init,
         data_format='channels_last'  # (batch, height, width, channels)
     )
-    bn_kwargs = dict(
-        axis=-1,       # because data_loader returns channels last
-        momentum=0.1,  # equivalent to pytorch defaults used by author 
-        epsilon=1e-5,   # match pytorch/torch defaults
-        gamma_initializer=tf.random_normal_initializer(1.0, 0.02),
-        trainable=True
-    )
+
+    #DELETE
+    # bn_kwargs = dict(
+    #     axis=-1,         # because data_loader returns channels last
+    #     momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
+    #     epsilon=1e-5,    # match pytorch defaults
+    #     beta_initializer='zeros',
+    #     gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
+    #     center=True,     # equivalent to affine=True
+    #     scale=True,      # equivalent to affine=True
+    #     trainable=True,  
+    #     # apply at both training AND inference time.
+    #     training=True
+    # )
     
     x = Conv2D(out_channels, kernel_size, strides=strides, **conv_kwargs)(x)
-    if batch_norm: x = BatchNormalization(**bn_kwargs)(x)
+    if batch_norm: x = Lambda(batchNorm)(x)
     x = LeakyReLU(alpha=0.2)(x)
     return x
     

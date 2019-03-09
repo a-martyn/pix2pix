@@ -47,17 +47,48 @@ def instanceNorm(x):
         gamma_initializer=tf.random_normal_initializer(1.0, 0.02)
     )
 
-def normalisation(x, norm_type='batch'):
-    bn_kwargs = dict(
+def batchNorm(x):
+    """
+    """
+    return tf.layers.batch_normalization(
+        x,
         axis=-1,         # because data_loader returns channels last
         momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
         epsilon=1e-5,    # match pytorch defaults
-        gamma_initializer=tf.random_normal_initializer(1.0, 0.02),
-        trainable=True
+        beta_initializer='zeros',
+        gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
+        center=True,     # equivalent to affine=True
+        scale=True,      # equivalent to affine=True
+        trainable=True,  
+        # apply at both training AND inference time.
+        training=True
     )
+
+
+def normalisation(x, norm_type='batch'):
+    # Pytorch Batch Norm
+    # nn.BatchNorm2d(eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    # By default, the elements of γ are sampled from U(0,1)\mathcal{U}(0, 1)U(0,1)
+    # and the elements of β\betaβ are set to 0
+    # Because affine == true, no conv bias is required
+    # useful ref: https://discuss.pytorch.org/t/convering-a-batch-normalization-layer-from-tf-to-pytorch/20407
+    
+    #DELETE
+    # bn_kwargs = dict(
+    #     axis=-1,         # because data_loader returns channels last
+    #     momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
+    #     epsilon=1e-5,    # match pytorch defaults
+    #     beta_initializer='zeros',
+    #     gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
+    #     center=True,     # equivalent to affine=True
+    #     scale=True,      # equivalent to affine=True
+    #     trainable=True,  
+    #     # apply at both training AND inference time.
+    #     training=True
+    # )
     
     if norm_type == 'batch':
-        x = BatchNormalization(**bn_kwargs)(x)
+        x = Lambda(batchNorm)(x)
     elif norm_type == 'instance':
         x = Lambda(instanceNorm)(x)
     elif norm_type == 'none':
