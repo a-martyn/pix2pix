@@ -105,19 +105,8 @@ def patchgan70(input_size=(256, 256, 3), init_gain=0.02, minibatch_std=False):
     
     op = Conv2D(1, 4, strides=1, padding='same', name='D_logits', 
                 kernel_initializer=init, bias_initializer=init)(x)           # ( 32,   32,  1) TRF=70
-    # no activation because using BCE with logits
+    op = Activation('sigmoid', name='D_activations')(op)
     
     inputs=[img_A, img_B]
     outputs=[op]
     return inputs, outputs
-
-
-def bceWithLogitsLoss(y_true, y_logits):
-    """
-    Equivalent to PyTorch's nn.BCEWithLogitsLoss
-    """
-    return K.binary_crossentropy(
-        y_true,
-        y_logits,
-        from_logits=True
-    )

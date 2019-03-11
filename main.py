@@ -13,7 +13,6 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from model.data_loader import dataLoader
 from model.generator_pix2pix import unet_pix2pix as build_generator
-from model.discriminator_patchgan import bceWithLogitsLoss
 from model.discriminator_patchgan import patchgan70 as build_discriminator
 from evaluate import evaluate
 from utils import Metrics
@@ -45,13 +44,15 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 # Losses
 # ----------------------------------
 
-# def g_loss_gan(y_true, y_pred):
-#     # predict_fake => 1
-#     tf.reduce_mean(-tf.log(predict_fake + EPS))
+def d_loss_bce(y_true, y_pred):
+    EPS = 1e-12
+    return tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
+
 
 def g_loss_l1(y_true, y_pred):
     # abs(targets - outputs) => 0
     return tf.reduce_mean(tf.abs(y_true - y_pred))
+
 
 # Options
 # ---------------------------------------------------------
@@ -130,7 +131,7 @@ optimizer_g = Adam(lr=g_lr, beta_1=g_beta1, beta_2=0.999, epsilon=1e-08, decay=0
 inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz, 
                                               minibatch_std=minibatch_std)
 discriminator = Model(inputs_dsc, outputs_dsc, name='discriminator')
-discriminator.compile(loss=d_loss_fn, optimizer=optimizer_d, metrics=['accuracy'])
+discriminator.compile(loss=d_loss_bce, optimizer=optimizer_d, metrics=['accuracy'])
 discriminator.summary()
 
 # Debug 1/3: Record trainable weights in discriminator
@@ -161,7 +162,7 @@ is_real = frozen_discriminator([output_gen, input_gen])
 gan = Model(input_gen, [output_gen, is_real], name='gan')
 gan.summary()
 
-gan.compile(loss=[g_loss_l1, d_loss_fn], 
+gan.compile(loss=[g_loss_l1, d_loss_bce], 
             loss_weights=[lambda_L1, 1], 
             optimizer=optimizer_g)
 
@@ -185,7 +186,7 @@ for epoch in range(epochs):
     for batch in range(n_samples):
         # ganhack2: modified loss function/label flip real => 0
         # ganhack: label smoothing
-        real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.3  # label smoothing: real => 0.0 - 0.3
+        real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.1  # label smoothing: real => 0.0 - 0.1
         fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
         
         inputs, targets = next(train_loader)
@@ -199,13 +200,18 @@ for epoch in range(epochs):
         #  Train Discriminator
         # ----------------------------------------------
         outputs, _ = gan.predict(inputs)
-        # Train the discriminators (original images = real / generated = Fake)
-        d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
-        d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-        # d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+
+        # Randomly switch the order to ensure discriminator isn't somehow 
+        # memorising train order: Real, Fake, Real, Fake, Real, Fake
+        if np.random.random() > 0.5:
+            # Train the discriminators (original images = real / generated = Fake)
+            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+        else:
+            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
 
         # Plot the progress
-        
         if batch % 100 == 0:
             elapsed_time = datetime.datetime.now() - start_time
             train_metrics.add({
