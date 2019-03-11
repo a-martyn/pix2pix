@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from model.data_loader import normalize, denormalize
-from model.discriminator_patchgan import bceWithLogitsLoss
-
 
 def scale(x):
     return (x - x.min()) / x.max()
@@ -42,7 +40,7 @@ def evaluate(gan, discriminator, data_loader, real, sample_dir, epoch, batch, ex
         # Create heatmap from patchgan discriminator output
         # -----------------------
         # Apply sigmoid because model returns logits 
-        patch = resize(d_activations, (256, 256, 1), 
+        patch = resize(d_activations[0], (256, 256, 1), 
                        order=0, preserve_range=True, anti_aliasing=False) 
         patch = np.asarray(grey2rgb(patch[:, :, 0]))
         

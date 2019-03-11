@@ -82,7 +82,6 @@ epochs=200
 batch_size=args.batch_size
 sample_interval=400
 
-d_loss_fn = bceWithLogitsLoss
 lambda_L1 = 100   # weight applied to L1 loss in gan
 
 dataset_name = 'facades'
