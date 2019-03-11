@@ -4,6 +4,7 @@ import datetime
 import argparse
 
 import tensorflow as tf
+import tensorflow.keras.backend as K
 from tensorflow.python.keras.engine.network import Network
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Sequential, Model
@@ -16,7 +17,6 @@ from model.discriminator_patchgan import bceWithLogitsLoss
 from model.discriminator_patchgan import patchgan70 as build_discriminator
 from evaluate import evaluate
 from utils import Metrics
-
 
 
 
@@ -42,12 +42,22 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 """
 
 
+# Losses
+# ----------------------------------
+
+# def g_loss_gan(y_true, y_pred):
+#     # predict_fake => 1
+#     tf.reduce_mean(-tf.log(predict_fake + EPS))
+
+def g_loss_l1(y_true, y_pred):
+    # abs(targets - outputs) => 0
+    return tf.reduce_mean(tf.abs(y_true - y_pred))
+
 # Options
 # ---------------------------------------------------------
 parser = argparse.ArgumentParser()
 parser.add_argument('--title', type=str, required=True, help='Title used to name results of this experiment')
 parser.add_argument('--norm_type', type=str, default='instance', help='Type of normalisation used in generator model [instance, batch]')
-parser.add_argument('--d_loss', type=str, default='BCE', help='Type of loss used for discriminator model [BCE, MSE]')
 parser.add_argument('--mbstd', action='store_true', help='Bool: Use minibatch standard deviation to increase variance')
 
 parser.add_argument('--batch_size', default=1, type=int)
@@ -55,15 +65,6 @@ args = parser.parse_args()
 
 experiment_title = args.title
 norm_type = args.norm_type
-
-if args.d_loss == 'BCE':
-    print('USING: BCE Loss')
-    d_loss_fn = bceWithLogitsLoss
-elif args.d_loss == 'MSE':
-    print('USING: MSE Loss')
-    d_loss_fn = 'mean_squared_error'
-else:
-    raise NotImplementedError(f'Supported d_loss arg: [SCE, MSE]')
 
 minibatch_std=args.mbstd
 if minibatch_std: print('\nUSING: minibatch_stddev_layer')
@@ -80,6 +81,8 @@ epochs=200
 batch_size=args.batch_size
 sample_interval=400
 
+d_loss_fn = bceWithLogitsLoss
+L1_loss_fn = ?
 lambda_L1 = 100   # weight applied to L1 loss in gan
 
 dataset_name = 'facades'
@@ -159,7 +162,7 @@ is_real = frozen_discriminator([output_gen, input_gen])
 gan = Model(input_gen, [output_gen, is_real], name='gan')
 gan.summary()
 
-gan.compile(loss=['mean_absolute_error', d_loss_fn], 
+gan.compile(loss=[g_loss_l1, d_loss_fn], 
             loss_weights=[lambda_L1, 1], 
             optimizer=optimizer_g)
 
@@ -187,21 +190,20 @@ for epoch in range(epochs):
         fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
         
         inputs, targets = next(train_loader)
-        outputs, _ = gan.predict(inputs)
-        
+
+        #  Train Generator
+        # ----------------------------------------------
+        # Train the generators in GAN setting
+        g_loss = gan.train_on_batch([inputs], [targets, real])
+
+
         #  Train Discriminator
         # ----------------------------------------------
+        outputs, _ = gan.predict(inputs)
         # Train the discriminators (original images = real / generated = Fake)
         d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
         d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
         # d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
-
-        
-        #  Train Generator
-        # ----------------------------------------------
-
-        # Train the generators in GAN setting
-        g_loss = gan.train_on_batch([inputs], [targets, real])
 
         # Plot the progress
         
