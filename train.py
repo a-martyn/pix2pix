@@ -14,8 +14,8 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from model.data_loader import dataLoader
 from model.generator_pix2pix import unet_pix2pix as build_generator
 from model.discriminator_patchgan import patchgan70 as build_discriminator
-from evaluate import evaluate, gen_checkpoint_img
-from utils import Metrics
+from evaluate import gen_checkpoint
+from utils.metrics import Metrics
 
 
 
@@ -108,8 +108,8 @@ train_generator = ImageDataGenerator(
     data_format='channels_last',
     validation_split=0.0
 )
-train_loader = dataLoader(train_pth, train_generator, 
-                          batch_sz=batch_size, img_sz=input_sz[:2])
+train_loader = dataLoader(train_pth, train_generator, batch_sz=batch_size, 
+                          shuffle=True, img_sz=input_sz[:2])
 
 check_generator = ImageDataGenerator(
     rescale=1./255,
@@ -242,3 +242,7 @@ for epoch in range(epochs):
     gen_checkpoint(gan, check_loader, epoch, checkpoints_pth+'/gen_tf')
     # real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
     # evaluate_val(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
+
+# Save models
+gan.save(f'pretrained/{experiment_title}_gan.h5')
+discriminator.save(f'pretrained/{experiment_title}_discriminator.h5')

@@ -1,1 +1,1 @@
-python train.py --title bl2 --norm_type batch
+python train.py --title baseline --norm_type batch
