@@ -3,6 +3,7 @@ import os
 from skimage.transform import resize
 from skimage.color import grey2rgb
 import matplotlib.pyplot as plt
+from PIL import Image
 
 import tensorflow as tf
 import tensorflow.keras.backend as K
@@ -15,7 +16,7 @@ def patchgan_heatmap(d_activations):
     Create heatmap from patchgan discriminator output
     """
     patch = resize(d_activations, (256, 256, 1), 
-                   order=0, preserve_range=True, anti_aliasing=False) 
+                   order=0, preserve_range=True, anti_aliasing=False, mode='constant') 
     patch = np.asarray(grey2rgb(patch[:, :, 0]))
     return patch
 
@@ -24,7 +25,7 @@ def arr2png(arr, filepath: str):
     Numpy array to png file on disk
     """
     arr = np.asarray(denormalize(arr)*255, dtype='uint8')
-    img = PIL.Image.fromarray(arr)
+    img = Image.fromarray(arr)
     img.save(filepath)
     return
 
@@ -38,7 +39,7 @@ def gen_checkpoint(gan, check_loader, epoch, output_pth):
     outputs, d_activations = gan.predict(inputs)
     patch = patchgan_heatmap(d_activations[0])
     
-    fp = f'{output_pth}/{epoch.zfill(4)}'
+    fp = f'{output_pth}/{str(epoch).zfill(4)}'
     arr2png(outputs[0], fp+'.png')
     arr2png(patch, fp+'_patch.png')
     return
