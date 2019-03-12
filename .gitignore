@@ -1,6 +1,7 @@
 results/facades/images_old/*
 results/facades/images/*
 results/artworks
+pretrained/*
 results/facades_old
 
 # DS store
