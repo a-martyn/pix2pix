@@ -239,7 +239,7 @@ for epoch in range(epochs):
             })
 
     train_metrics.to_csv()
-    gen_checkpoint(gan, check_loader, epoch, checkpoints_pth+'/gen_tf')
+    gen_checkpoint(gan, check_loader, epoch+1, checkpoints_pth+'/gen_tf')
     # real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
     # evaluate_val(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
 
