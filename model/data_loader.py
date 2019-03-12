@@ -16,7 +16,7 @@ def normalize(x):
 def denormalize(x):
     return (x/2)+0.5
 
-def dataLoader(directory, data_generator, batch_sz=1, img_sz=(256, 256)):
+def dataLoader(directory, data_generator, batch_sz=1, shuffle=True, img_sz=(256, 256)):
 
     input_subdir = 'input'
     target_subdir = 'target'
@@ -29,6 +29,7 @@ def dataLoader(directory, data_generator, batch_sz=1, img_sz=(256, 256)):
         classes=[input_subdir],
         class_mode=None,
         batch_size=batch_sz,
+        shuffle=shuffle,
         seed=1,
         interpolation='nearest'
     )
@@ -41,6 +42,7 @@ def dataLoader(directory, data_generator, batch_sz=1, img_sz=(256, 256)):
         classes=[target_subdir],
         class_mode=None,
         batch_size=batch_sz,
+        shuffle=shuffle,
         seed=1,
         interpolation='nearest'
     )

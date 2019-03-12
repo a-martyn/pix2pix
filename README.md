@@ -61,8 +61,22 @@ https://github.com/affinelayer/pix2pix-tensorflow/blob/master/pix2pix.py
 # pytorch ref
 - [x] run pytorch reference
 - [x] match logging
-- [] match params
-- [] match params printout
+- [x] match params
+- [x] match params printout
+- [x] match g loss function
+- [x] understand why rgb=>lab colour space conversion is needed
+    - it is only used in colourspace implementation
+- [x] match d loss function
+- [ ] training baseline images from pytorch implementation
+- [ ] training review webpage with side-by-sides 
+- [ ] training curves
+
+
+- [ ] match discriminator deconvolutions
+- [ ] match generator deconvolutions
+
+- [ ] check data normalisation
+- [ ] check activation functions
 - [] copy visualizers
 - [] implement model saving
 - [] save more images

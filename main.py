@@ -14,7 +14,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from model.data_loader import dataLoader
 from model.generator_pix2pix import unet_pix2pix as build_generator
 from model.discriminator_patchgan import patchgan70 as build_discriminator
-from evaluate import evaluate
+from evaluate import evaluate, gen_checkpoint_img
 from utils import Metrics
 
 
@@ -89,7 +89,8 @@ train_metrics_pth = f'results/{dataset_name}/{experiment_title}_train.csv'
 val_metrics_pth = f'results/{dataset_name}/{experiment_title}_val.csv'
 sample_dir = f'results/{dataset_name}/images'
 train_pth = 'data/facades_processed/train'
-val_pth = 'data/facades_processed/val'
+# val_pth = 'data/facades_processed/val'
+checkpoints_pth = f'results/{dataset_name}/checkpoints/images'
 n_samples = 400
 
 d_lr = 0.0002
@@ -101,7 +102,7 @@ g_beta1 = 0.5
 # ---------------------------------------------------------
 train_generator = ImageDataGenerator(
     rescale=1./255,
-    zoom_range=[0.895, 1.0],
+    zoom_range=[0.8, 1.0],
     horizontal_flip=True,
     fill_mode='constant',
     data_format='channels_last',
@@ -110,14 +111,25 @@ train_generator = ImageDataGenerator(
 train_loader = dataLoader(train_pth, train_generator, 
                           batch_sz=batch_size, img_sz=input_sz[:2])
 
-val_generator = ImageDataGenerator(
+check_generator = ImageDataGenerator(
     rescale=1./255,
     fill_mode='constant',
     data_format='channels_last',
     validation_split=0.0
 )
-val_loader = dataLoader(val_pth, val_generator, 
-                        batch_sz=1, img_sz=input_sz[:2])
+
+check_loader = dataLoader(checkpoints_pth, check_generator, batch_sz=1, 
+                          shuffle=False, img_sz=(256, 256))
+
+
+# val_generator = ImageDataGenerator(
+#     rescale=1./255,
+#     fill_mode='constant',
+#     data_format='channels_last',
+#     validation_split=0.0
+# )
+# val_loader = dataLoader(val_pth, val_generator, 
+#                         batch_sz=1, img_sz=input_sz[:2])
 
 
 
@@ -181,12 +193,14 @@ train_metrics = Metrics(train_metrics_pth)
 val_metrics = Metrics(val_metrics_pth)
 start_time = datetime.datetime.now()
 
+
+# ganhack2: modified loss function/label flip real => 0
+# label smoothing: real => 0.0 - 0.1
+real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.1 
+fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
+
 for epoch in range(epochs):
-    for batch in range(n_samples):
-        # ganhack2: modified loss function/label flip real => 0
-        # ganhack: label smoothing
-        real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.1  # label smoothing: real => 0.0 - 0.1
-        fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
+    for batch in range(n_samples):                
         
         inputs, targets = next(train_loader)
 
@@ -224,9 +238,7 @@ for epoch in range(epochs):
                 'time': elapsed_time
             })
 
-
-        # If at save interval => save generated image samples
-        if batch % sample_interval == 0:
-            train_metrics.to_csv()
-            real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
-            evaluate(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
+    train_metrics.to_csv()
+    gen_checkpoint(gan, check_loader, epoch, checkpoints_pth+'/gen_tf')
+    # real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
+    # evaluate_val(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
