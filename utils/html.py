@@ -47,7 +47,7 @@ class HTML:
         with self.doc:
             h3(text)
 
-    def add_images(self, ims, txts, links, width=400):
+    def add_images(self, ims, txts, links, epoch, width=256):
         """add images to the HTML file
         Parameters:
             ims (str list)   -- a list of image paths
@@ -61,10 +61,11 @@ class HTML:
                 for im, txt, link in zip(ims, txts, links):
                     with td(style="word-wrap: break-word;", halign="center", valign="top"):
                         with p():
-                            with a(href=os.path.join('images', link)):
-                                img(style="width:%dpx" % width, src=os.path.join('images', im))
+                            with a(href=link):
+                                img(style="width:%dpx" % width, src=im)
                             br()
                             p(txt)
+            p(epoch)
 
     def save(self):
         """save the current content to the HMTL file"""
@@ -74,14 +75,23 @@ class HTML:
         f.close()
 
 
-if __name__ == '__main__':  # we show an example usage here.
-    html = HTML('web/', 'test_html')
-    html.add_header('hello world')
+def build_results_page(epochs:int):
+    html = HTML('results/facades/checkpoints', 'test_html')
+    html.add_header('Training comparison')
 
-    ims, txts, links = [], [], []
-    for n in range(4):
-        ims.append('image_%d.png' % n)
-        txts.append('text_%d' % n)
-        links.append('image_%d.png' % n)
-    html.add_images(ims, txts, links)
-html.save()
+    dirs = ['input', 'gen_pytorch', 'gen_tf', 'target', 'patch_tf']
+    labels = ['input', "authors' pytorch", 'this implementation', 'target', 'patchgan']
+    for n in range(epochs, 0, -1):
+        fn = f'{str(n).zfill(4)}.png'
+        ims, txts, links, epoch = [], [] , [], []
+        for d in zip(dirs, labels):
+            ims.append(f'images/{d[0]}/{fn}')
+            txts.append(f'{d[1]}')
+            links.append(f'images/{d[0]}/{fn}')
+        epoch.append(f'epoch: {n}')
+        html.add_images(ims, txts, links, epoch)
+    html.save()
+
+
+if __name__ == '__main__':
+    build_results_page(200)

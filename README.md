@@ -67,13 +67,17 @@ https://github.com/affinelayer/pix2pix-tensorflow/blob/master/pix2pix.py
 - [x] understand why rgb=>lab colour space conversion is needed
     - it is only used in colourspace implementation
 - [x] match d loss function
-- [ ] training baseline images from pytorch implementation
-- [ ] training review webpage with side-by-sides 
+- [x] training baseline images from pytorch implementation
+- [x] save model
+- [x] training review webpage with side-by-sides 
+- [ ] fix patchiness discrepancy
+  - [ ] check optimiser settings 
+  - [ ] match discriminator deconvolutions
+  - [ ] match generator deconvolutions
 - [ ] training curves
 
 
-- [ ] match discriminator deconvolutions
-- [ ] match generator deconvolutions
+
 
 - [ ] check data normalisation
 - [ ] check activation functions

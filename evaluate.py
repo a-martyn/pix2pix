@@ -39,9 +39,8 @@ def gen_checkpoint(gan, check_loader, epoch, output_pth):
     outputs, d_activations = gan.predict(inputs)
     patch = patchgan_heatmap(d_activations[0])
     
-    fp = f'{output_pth}/{str(epoch).zfill(4)}'
-    arr2png(outputs[0], fp+'.png')
-    arr2png(patch, fp+'_patch.png')
+    arr2png(outputs[0], f'{output_pth}/gen_tf/{str(epoch).zfill(4)}')
+    arr2png(patch, f'{output_pth}/patch_tf/{str(epoch).zfill(4)}')
     return
 
 # def plot_results(imgs, is_real, sample_dir, experiment_title):

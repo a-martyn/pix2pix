@@ -16,6 +16,7 @@ from model.generator_pix2pix import unet_pix2pix as build_generator
 from model.discriminator_patchgan import patchgan70 as build_discriminator
 from evaluate import gen_checkpoint
 from utils.metrics import Metrics
+from utils.html import build_results_page
 
 
 
@@ -239,7 +240,8 @@ for epoch in range(epochs):
             })
 
     train_metrics.to_csv()
-    gen_checkpoint(gan, check_loader, epoch+1, checkpoints_pth+'/gen_tf')
+    gen_checkpoint(gan, check_loader, epoch+1, checkpoints_pth)
+    build_results_page(epoch+1)
     # real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
     # evaluate_val(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
 
