@@ -39,13 +39,15 @@ class HTML:
         """Return the directory that stores images"""
         return self.img_dir
 
-    def add_header(self, text):
+    def add_header(self, text, im):
         """Insert a header to the HTML file
         Parameters:
             text (str) -- the header text
         """
         with self.doc:
             h3(text)
+            with a(href=im):
+                img(style="width:1024px", src=im)
 
     def add_images(self, ims, txts, links, epoch, width=256):
         """add images to the HTML file
@@ -62,7 +64,7 @@ class HTML:
                     with td(style="word-wrap: break-word;", halign="center", valign="top"):
                         with p():
                             with a(href=link):
-                                img(style="width:%dpx" % width, src=im)
+                                img(src=im)
                             br()
                             p(txt)
             p(epoch)
@@ -77,7 +79,7 @@ class HTML:
 
 def build_results_page(epochs:int):
     html = HTML('results/facades/checkpoints', 'test_html')
-    html.add_header('Training comparison')
+    html.add_header('Training results', 'metrics.png')
 
     dirs = ['input', 'gen_pytorch', 'gen_tf', 'target', 'patch_tf']
     labels = ['input', "authors' pytorch", 'this implementation', 'target', 'patchgan']

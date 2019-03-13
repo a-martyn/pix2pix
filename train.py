@@ -92,6 +92,8 @@ sample_dir = f'results/{dataset_name}/images'
 train_pth = 'data/facades_processed/train'
 # val_pth = 'data/facades_processed/val'
 checkpoints_pth = f'results/{dataset_name}/checkpoints/images'
+metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_real', 'D_fake']
+metrics_plt_pth = f'results/{dataset_name}/checkpoints/metrics.png'
 n_samples = 400
 
 d_lr = 0.0002
@@ -205,6 +207,8 @@ fake = np.zeros((batch_size, ) + discriminator_output_sz)  # fake => 0
  
 
 for epoch in range(epochs):
+    gen_checkpoint(gan, check_loader, epoch, checkpoints_pth)
+    build_results_page(epoch)
     for batch in range(n_samples):                
         
         inputs, targets = next(train_loader)
@@ -244,8 +248,7 @@ for epoch in range(epochs):
             })
 
     train_metrics.to_csv()
-    gen_checkpoint(gan, check_loader, epoch+1, checkpoints_pth)
-    build_results_page(epoch+1)
+    train_metrics.plot(metric_keys, metrics_plt_pth)
     # real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
     # evaluate_val(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
 

@@ -65,4 +65,17 @@ class Metrics():
         return
 
 
+    def plot(self, metrics: list, out_pth: str):
+        """ Plot training metrics in grid """
+        rows, cols = 2, 3
+        df = pd.read_csv(self.logs_pth)
+        # filter to last iter in epoch only
+        df_filt = df[df['iters'] == 300][5:]
 
+        fig, axs = plt.subplots(rows, cols, figsize=(15, 8))
+        for i in range(len(metrics)):
+            ax = axs[i//cols, i%cols]
+            sns.lineplot(x='epoch', y=metrics[i], data=df_filt, ax=ax)
+            sns.regplot(x='epoch', y=metrics[i], data=df_filt, scatter=False, lowess=True, ax=ax)
+        
+        fig.savefig(out_pth)
