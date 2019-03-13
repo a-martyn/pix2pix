@@ -83,7 +83,7 @@ def build_results_page(epochs:int):
 
     dirs = ['input', 'gen_pytorch', 'gen_tf', 'target', 'patch_tf']
     labels = ['input', "authors' pytorch", 'this implementation', 'target', 'patchgan']
-    for n in range(epochs, 0, -1):
+    for n in range(epochs, -1, -1):
         fn = f'{str(n).zfill(4)}.png'
         ims, txts, links, epoch = [], [] , [], []
         for d in zip(dirs, labels):
