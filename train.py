@@ -45,6 +45,17 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 # Losses
 # ----------------------------------
 
+# class Losses():
+#     def __init__(self):
+#         self.ema = tf.train.ExponentialMovingAverage(decay=0.9999)
+
+#     def d_loss_bce(self, y_true, y_pred):
+#         EPS = 1e-12
+#         loss = tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
+#         self.ema.apply([loss])
+#         return self.ema.average(loss)
+
+
 def d_loss_bce(y_true, y_pred):
     EPS = 1e-12
     return tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
@@ -54,6 +65,15 @@ def g_loss_l1(y_true, y_pred):
     # abs(targets - outputs) => 0
     return tf.reduce_mean(tf.abs(y_true - y_pred))
 
+
+HUBER_DELTA = 0.5
+def smoothL1(y_true, y_pred):
+   x = K.sum(K.abs(y_true - y_pred))
+   x = K.switch(x < HUBER_DELTA, 0.5 * x ** 2, HUBER_DELTA * (x - 0.5 * HUBER_DELTA))
+   return  x
+
+# Learning rate
+# ----------------------------------
 
 class LrScheduler():
     """
@@ -213,7 +233,7 @@ is_real = frozen_discriminator([output_gen, input_gen])
 gan = Model(input_gen, [output_gen, is_real], name='gan')
 gan.summary()
 
-gan.compile(loss=[g_loss_l1, d_loss_bce], 
+gan.compile(loss=[smoothL1, d_loss_bce], 
             loss_weights=[lambda_L1, 1], 
             optimizer=optimizer_g)
 
@@ -283,7 +303,7 @@ for epoch in range(epochs):
                 'epoch': epoch,
                 'iters': batch,
                 'G_lr': K.eval(gan.optimizer.lr),
-                'D_lr': K.eval(discriminator.optimizer.lr)
+                'D_lr': K.eval(discriminator.optimizer.lr),
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
