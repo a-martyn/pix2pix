@@ -78,7 +78,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
 d_acc_min = 1.0
 input_sz = (256, 256, 3)
-discriminator_output_sz = (32, 32, 1)
+discriminator_output_sz = (30, 30, 1)
 epochs=200
 batch_size=args.batch_size
 sample_interval=400
