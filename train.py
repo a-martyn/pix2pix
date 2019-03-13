@@ -283,7 +283,7 @@ for epoch in range(epochs):
                 'epoch': epoch,
                 'iters': batch,
                 'G_lr': K.eval(gan.optimizer.lr),
-                'D_lr': K.eval(discriminator.optimizer.lr)
+                'D_lr': K.eval(discriminator.optimizer.lr),
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
