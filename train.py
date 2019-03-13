@@ -45,20 +45,17 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 # Losses
 # ----------------------------------
 
-# class Losses():
-#     def __init__(self):
-#         self.ema = tf.train.ExponentialMovingAverage(decay=0.9999)
-
-#     def d_loss_bce(self, y_true, y_pred):
-#         EPS = 1e-12
-#         loss = tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
-#         self.ema.apply([loss])
-#         return self.ema.average(loss)
-
 
 def d_loss_bce(y_true, y_pred):
     EPS = 1e-12
-    return tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
+    x = tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
+    return x
+
+
+def g_loss_bce(y_true, y_pred):
+    EPS = 1e-12
+    x = tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
+    return x
 
 
 def g_loss_l1(y_true, y_pred):
@@ -66,11 +63,6 @@ def g_loss_l1(y_true, y_pred):
     return tf.reduce_mean(tf.abs(y_true - y_pred))
 
 
-HUBER_DELTA = 0.5
-def smoothL1(y_true, y_pred):
-   x = K.sum(K.abs(y_true - y_pred))
-   x = K.switch(x < HUBER_DELTA, 0.5 * x ** 2, HUBER_DELTA * (x - 0.5 * HUBER_DELTA))
-   return  x
 
 # Learning rate
 # ----------------------------------
@@ -182,17 +174,6 @@ check_loader = dataLoader(checkpoints_pth, check_generator, batch_sz=1,
                           shuffle=False, img_sz=(256, 256))
 
 
-# val_generator = ImageDataGenerator(
-#     rescale=1./255,
-#     fill_mode='constant',
-#     data_format='channels_last',
-#     validation_split=0.0
-# )
-# val_loader = dataLoader(val_pth, val_generator, 
-#                         batch_sz=1, img_sz=input_sz[:2])
-
-
-
 # Optimizers
 optimizer_d = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
 optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
@@ -233,7 +214,7 @@ is_real = frozen_discriminator([output_gen, input_gen])
 gan = Model(input_gen, [output_gen, is_real], name='gan')
 gan.summary()
 
-gan.compile(loss=[smoothL1, d_loss_bce], 
+gan.compile(loss=[smoothL1, g_loss_bce], 
             loss_weights=[lambda_L1, 1], 
             optimizer=optimizer_g)
 
