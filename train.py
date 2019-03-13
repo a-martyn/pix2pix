@@ -197,8 +197,12 @@ start_time = datetime.datetime.now()
 
 # ganhack2: modified loss function/label flip real => 0
 # label smoothing: real => 0.0 - 0.1
-real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.1 
-fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
+# real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.1 
+# fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
+
+real = np.ones((batch_size, ) + discriminator_output_sz)   # real => 1
+fake = np.zeros((batch_size, ) + discriminator_output_sz)  # fake => 0
+ 
 
 for epoch in range(epochs):
     for batch in range(n_samples):                
