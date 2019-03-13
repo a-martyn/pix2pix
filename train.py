@@ -78,7 +78,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
 d_acc_min = 1.0
 input_sz = (256, 256, 3)
-discriminator_output_sz = (32, 32, 1)
+discriminator_output_sz = (30, 30, 1)
 epochs=200
 batch_size=args.batch_size
 sample_interval=400
@@ -207,8 +207,6 @@ fake = np.zeros((batch_size, ) + discriminator_output_sz)  # fake => 0
  
 
 for epoch in range(epochs):
-    gen_checkpoint(gan, check_loader, epoch, checkpoints_pth)
-    build_results_page(epoch)
     for batch in range(n_samples):                
         
         inputs, targets = next(train_loader)
@@ -249,6 +247,8 @@ for epoch in range(epochs):
 
     train_metrics.to_csv()
     train_metrics.plot(metric_keys, metrics_plt_pth)
+    gen_checkpoint(gan, check_loader, epoch, checkpoints_pth)
+    build_results_page(epoch)
     # real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
     # evaluate_val(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
 

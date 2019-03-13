@@ -44,7 +44,7 @@ def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True,
                init='random_normal'):
     
     conv_kwargs = dict(
-        padding='same',
+        padding='valid',
         kernel_initializer=init,
         bias_initializer=init,
         data_format='channels_last'  # (batch, height, width, channels)
@@ -64,6 +64,7 @@ def conv_layer(x, out_channels, kernel_size, strides=2, batch_norm=True,
     #     training=True
     # )
     
+    x = ZeroPadding2D(padding=(1, 1))(x)
     x = Conv2D(out_channels, kernel_size, strides=strides, **conv_kwargs)(x)
     if batch_norm: x = Lambda(batchNorm)(x)
     x = LeakyReLU(alpha=0.2)(x)
@@ -103,8 +104,9 @@ def patchgan70(input_size=(256, 256, 3), init_gain=0.02, minibatch_std=False):
     x = conv_layer(x, 256, 4, strides=2, batch_norm=True, init=init)          # ( 32,  32, 256) TRF=22
     x = conv_layer(x, 512, 4, strides=1, batch_norm=True, init=init)          # ( 32,  32, 512) TRF=46 
     
-    op = Conv2D(1, 4, strides=1, padding='same', name='D_logits', 
-                kernel_initializer=init, bias_initializer=init)(x)           # ( 32,   32,  1) TRF=70
+    op = ZeroPadding2D(padding=(1, 1))(x)
+    op = Conv2D(1, 4, strides=1, padding='valid', name='D_logits', 
+                kernel_initializer=init, bias_initializer=init)(op)           # ( 32,   32,  1) TRF=70
     op = Activation('sigmoid', name='D_activations')(op)
     
     inputs=[img_A, img_B]
