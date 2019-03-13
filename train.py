@@ -55,6 +55,44 @@ def g_loss_l1(y_true, y_pred):
     return tf.reduce_mean(tf.abs(y_true - y_pred))
 
 
+class LrScheduler():
+    """
+    keep the same learning rate for the first <niter> epochs 
+    and linearly decay the rate to zero over the next <niter_decay> epochs
+    
+    
+             | ________________
+             |                 \
+             |                  \
+          lr |                   \
+             |                    \
+             |--------------------------
+                       epochs
+
+    - init_lr: the initial learning rate
+    - decay_start: number of epochs before learning rate reduction begins
+    - decay_end: the epoch on which learning rate reaches zero
+    
+    """
+    
+    def __init__(self, init_lr: float, decay_start: int, decay_end: int):
+        # linear so stepsize is constant
+        self.init_lr = init_lr
+        self.lr_step = init_lr / decay_end
+        self.decay_start = decay_start
+        
+
+    def update(self, epoch: int, model):
+        if epoch < self.decay_start:
+            # do nothing
+            return
+        else:
+            new_lr = self.init_lr - (self.lr_step * (epoch - self.decay_start))
+            # update models learning rate
+            K.set_value(model.optimizer.lr, new_lr)
+            return
+
+
 # Options
 # ---------------------------------------------------------
 parser = argparse.ArgumentParser()
@@ -96,10 +134,11 @@ metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_real', 'D_fake']
 metrics_plt_pth = f'results/{dataset_name}/checkpoints/metrics.png'
 n_samples = 400
 
-d_lr = 0.0002
-d_beta1 = 0.5
-g_lr = 0.0002
-g_beta1 = 0.5
+lr = 0.0002
+lr_beta1 = 0.5
+lr_decay_start = 100
+lr_decay_end = 100
+lr_scheduler = LrScheduler(lr, lr_decay_start, lr_decay_end)
 
 # Data loader
 # ---------------------------------------------------------
@@ -137,8 +176,8 @@ check_loader = dataLoader(checkpoints_pth, check_generator, batch_sz=1,
 
 
 # Optimizers
-optimizer_d = Adam(lr=d_lr, beta_1=d_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
-optimizer_g = Adam(lr=g_lr, beta_1=g_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+optimizer_d = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
 
 # Build and compile Discriminator
 # ---------------------------------------------------------
@@ -213,6 +252,11 @@ for epoch in range(epochs):
         
         inputs, targets = next(train_loader)
 
+        # Learning rate annealing
+        # ----------------------------------------------
+        lr_scheduler.update(epoch, gan)
+        lr_scheduler.update(epoch, discriminator)
+
         #  Train Generator
         # ----------------------------------------------
         # Train the generators in GAN setting
@@ -239,6 +283,8 @@ for epoch in range(epochs):
             train_metrics.add({
                 'epoch': epoch,
                 'iters': batch,
+                'G_lr': gan.lr.get_value(),
+                'D_lr': discriminator.lr.get_value(),
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
