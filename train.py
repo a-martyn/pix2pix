@@ -82,15 +82,13 @@ class LrScheduler():
         self.decay_start = decay_start
         
 
-    def update(self, epoch: int, model):
+    def update(self, epoch: int):
         if epoch < self.decay_start:
             # do nothing
-            return
+            return self.init_lr
         else:
             new_lr = self.init_lr - (self.lr_step * (epoch - self.decay_start))
-            # update models learning rate
-            K.set_value(model.optimizer.lr, new_lr)
-            return
+            return new_lr
 
 
 # Options
@@ -137,7 +135,7 @@ n_samples = 400
 lr = 0.0002
 lr_beta1 = 0.5
 lr_decay_start = 100
-lr_decay_end = 100
+lr_decay_end = 200
 lr_scheduler = LrScheduler(lr, lr_decay_start, lr_decay_end)
 
 # Data loader
@@ -254,8 +252,9 @@ for epoch in range(epochs):
 
         # Learning rate annealing
         # ----------------------------------------------
-        lr_scheduler.update(epoch, gan)
-        lr_scheduler.update(epoch, discriminator)
+        new_lr = lr_scheduler.update(epoch)
+        K.set_value(gan.optimizer.lr, new_lr)
+        K.set_value(discriminator.optimizer.lr, new_lr)
 
         #  Train Generator
         # ----------------------------------------------
@@ -283,8 +282,8 @@ for epoch in range(epochs):
             train_metrics.add({
                 'epoch': epoch,
                 'iters': batch,
-                'G_lr': gan.lr.get_value(),
-                'D_lr': discriminator.lr.get_value(),
+                'G_lr': K.eval(gan.optimizer.lr),
+                'D_lr': K.eval(discriminator.optimizer.lr)
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
