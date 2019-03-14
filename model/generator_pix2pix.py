@@ -85,7 +85,7 @@ def normalisation(x, norm_type='batch'):
     )
     
     if norm_type == 'batch':
-        x = BathNormalization(**bn_kwargs)(x)
+        x = BatchNormalization(**bn_kwargs)(x)
     elif norm_type == 'instance':
         x = Lambda(instanceNorm)(x)
     elif norm_type == 'none':
