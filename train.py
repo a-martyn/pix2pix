@@ -131,7 +131,7 @@ epochs=200
 batch_size=args.batch_size
 sample_interval=400
 
-lambda_L1 = 200.0   # weight applied to L1 loss in gan
+lambda_L1 = 100.0   # weight applied to L1 loss in gan
 
 dataset_name = 'facades'
 train_metrics_pth = f'results/{dataset_name}/{experiment_title}_train.csv'
