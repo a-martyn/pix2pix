@@ -11,58 +11,58 @@ from tensorflow.contrib.layers import instance_norm
 # from tensorflow.python.keras.layers import Lambda
 
 
-def tfdropout(x):
-    """
-    Dropout applied at training AND inference time.
+# def tfdropout(x):
+#     """
+#     Dropout applied at training AND inference time.
 
-    Can't use keras implementation 
-    due to TypeError: ('Keyword not understood': 'training')
-    """
-    return tf.layers.dropout(x, rate=0.5, training=True)
+#     Can't use keras implementation 
+#     due to TypeError: ('Keyword not understood': 'training')
+#     """
+#     return tf.layers.dropout(x, rate=0.5, training=True)
 
 
-def instanceNorm(x):
-    """
-    Normalisation using statistics of the current batch at both traininf
-    and inference time. Implemented by setting training=True.
+# def instanceNorm(x):
+#     """
+#     Normalisation using statistics of the current batch at both traininf
+#     and inference time. Implemented by setting training=True.
     
-    Is Instance Normalisation so long as batch_size == 1. 
-    https://www.tensorflow.org/api_docs/python/tf/contrib/layers/instance_norm
-    but didn't seem to work in practice
+#     Is Instance Normalisation so long as batch_size == 1. 
+#     https://www.tensorflow.org/api_docs/python/tf/contrib/layers/instance_norm
+#     but didn't seem to work in practice
     
-    Note:
-    tf.keras.layers.BatchNormalization wasn't usable in tf v1.12 because it didn't
-    recognise `training` argument, despite docs saying it does.
-    """
-    return tf.layers.batch_normalization(
-        x, 
-        axis=-1, 
-        epsilon=1e-5, 
-        momentum=0.1, 
-        # apply at both training AND inference time.
-        training=True,
-        # To achieve instance normalisation normalise each sample individually
-        # For explanation of instance norm see Fig.2 here: https://arxiv.org/pdf/1803.08494.pdf
-        virtual_batch_size=1,
-        gamma_initializer=tf.random_normal_initializer(1.0, 0.02)
-    )
+#     Note:
+#     tf.keras.layers.BatchNormalization wasn't usable in tf v1.12 because it didn't
+#     recognise `training` argument, despite docs saying it does.
+#     """
+#     return tf.layers.batch_normalization(
+#         x, 
+#         axis=-1, 
+#         epsilon=1e-5, 
+#         momentum=0.1, 
+#         # apply at both training AND inference time.
+#         training=True,
+#         # To achieve instance normalisation normalise each sample individually
+#         # For explanation of instance norm see Fig.2 here: https://arxiv.org/pdf/1803.08494.pdf
+#         virtual_batch_size=1,
+#         gamma_initializer=tf.random_normal_initializer(1.0, 0.02)
+#     )
 
-def batchNorm(x):
-    """
-    """
-    return tf.layers.batch_normalization(
-        x,
-        axis=-1,         # because data_loader returns channels last
-        momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
-        epsilon=1e-5,    # match pytorch defaults
-        beta_initializer='zeros',
-        gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
-        center=True,     # equivalent to affine=True
-        scale=True,      # equivalent to affine=True
-        trainable=True,  
-        # apply at both training AND inference time.
-        training=True
-    )
+# def batchNorm(x):
+#     """
+#     """
+#     return tf.layers.batch_normalization(
+#         x,
+#         axis=-1,         # because data_loader returns channels last
+#         momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
+#         epsilon=1e-5,    # match pytorch defaults
+#         beta_initializer='zeros',
+#         gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
+#         center=True,     # equivalent to affine=True
+#         scale=True,      # equivalent to affine=True
+#         trainable=True,  
+#         # apply at both training AND inference time.
+#         training=True
+#     )
 
 
 def normalisation(x, norm_type='batch'):
@@ -73,22 +73,19 @@ def normalisation(x, norm_type='batch'):
     # Because affine == true, no conv bias is required
     # useful ref: https://discuss.pytorch.org/t/convering-a-batch-normalization-layer-from-tf-to-pytorch/20407
     
-    #DELETE
-    # bn_kwargs = dict(
-    #     axis=-1,         # because data_loader returns channels last
-    #     momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
-    #     epsilon=1e-5,    # match pytorch defaults
-    #     beta_initializer='zeros',
-    #     gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
-    #     center=True,     # equivalent to affine=True
-    #     scale=True,      # equivalent to affine=True
-    #     trainable=True,  
-    #     # apply at both training AND inference time.
-    #     training=True
-    # )
+    bn_kwargs = dict(
+        axis=-1,         # because data_loader returns channels last
+        momentum=0.9,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
+        epsilon=1e-5,    # match pytorch defaults
+        beta_initializer='zeros',
+        gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
+        center=True,     # equivalent to affine=True
+        scale=True,      # equivalent to affine=True
+        trainable=True,
+    )
     
     if norm_type == 'batch':
-        x = Lambda(batchNorm)(x)
+        x = BathNormalization(**bn_kwargs)(x)
     elif norm_type == 'instance':
         x = Lambda(instanceNorm)(x)
     elif norm_type == 'none':
@@ -98,29 +95,30 @@ def normalisation(x, norm_type='batch'):
     return x
     
 
-def downconv(x, out_channels, activation=True, norm_type='instance', 
+def downconv(x, out_channels, activation=True, norm_type='batch', 
              use_bias=True, init='random_normal'):
     
     conv_kwargs = dict(
         use_bias=use_bias,
-        padding='same',
+        padding='valid',
         kernel_initializer=init,  
         bias_initializer=init,              
         data_format='channels_last'
     )
     
     if activation: x = LeakyReLU(alpha=0.2)(x)
+    x = ZeroPadding2D(padding=(1, 1))(x)
     x = Conv2D(out_channels, 4, strides=2, **conv_kwargs)(x)
     x = normalisation(x, norm_type=norm_type)
     return x
 
 
-def upconv(x, out_channels, norm_type='instance', dropout=False, use_bias=True,
+def upconv(x, out_channels, norm_type='batch', dropout=False, use_bias=True,
            init='random_normal'):
     
     conv_kwargs = dict(
         use_bias=use_bias,
-        padding='same', 
+        padding='valid', 
         kernel_initializer=init,  
         bias_initializer=init,                  
         data_format='channels_last'
@@ -131,10 +129,11 @@ def upconv(x, out_channels, norm_type='instance', dropout=False, use_bias=True,
         x = concatenate(x, axis=-1)
     
     # Transpose convolution
-    activation: x = ReLU()(x)
+    x = ReLU()(x)
+    x = ZeroPadding2D(padding=(1, 1))(x)
     x = Conv2DTranspose(out_channels, 4, strides=2, **conv_kwargs)(x)
     x = normalisation(x, norm_type=norm_type)
-    if dropout: x = Lambda(tfdropout)(x)
+    if dropout: x = Dropout(0.5)(x)
     return x
     
 
@@ -172,26 +171,26 @@ def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1,
     # U-net
     
     # outermost
-    inputs = Input(input_size)                                                     # (256, 256, input_size[-1])
-    e1 = downconv(inputs, 64, activation=False, norm_type='none', init=init)                  # (128, 128, 64)
-    e2 = downconv(e1, 128, activation=True, norm_type=nt, use_bias=use_bias, init=init)       # (64, 64, 128)
-    e3 = downconv(e2, 256, activation=True, norm_type=nt, use_bias=use_bias, init=init)       # (32, 32, 256)
-    e4 = downconv(e3, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)       # (16, 16, 512)
-    e5 = downconv(e4, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)       # (8, 8, 512)
-    e6 = downconv(e5, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)       # (4, 4, 512)
-    e7 = downconv(e6, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)       # (2, 2, 512)
+    inputs = Input(input_size)                                                                    # (256, 256, input_size[-1])
+    e1 = downconv(inputs, 64, activation=False, norm_type='none', use_bias=use_bias, init=init)   # (128, 128, 64)
+    e2 = downconv(e1, 128, activation=True, norm_type=nt, use_bias=use_bias, init=init)           # (64, 64, 128)
+    e3 = downconv(e2, 256, activation=True, norm_type=nt, use_bias=use_bias, init=init)           # (32, 32, 256)
+    e4 = downconv(e3, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)           # (16, 16, 512)
+    e5 = downconv(e4, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)           # (8, 8, 512)
+    e6 = downconv(e5, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)           # (4, 4, 512)
+    e7 = downconv(e6, 512, activation=True, norm_type=nt, use_bias=use_bias, init=init)           # (2, 2, 512)
     
     # innermost
-    e8 = downconv(e7, 512, activation=True, norm_type='none', use_bias=use_bias, init=init)   # (1 x 1 x 512)
-    d8 = upconv(e8, 512, norm_type=nt, dropout=False, use_bias=use_bias, init=init)           # (2 x 2 x 512)
-
-    d7 = upconv([d8, e7], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)      # (4, 4, 512)
-    d6 = upconv([d7, e6], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)      # (8, 8, 512)
-    d5 = upconv([d6, e5], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)      # (16, 16, 512)
-    d4 = upconv([d5, e4], 256, norm_type=nt, dropout=False, use_bias=use_bias, init=init)     # (32, 32, 256)
-    d3 = upconv([d4, e3], 128, norm_type=nt, dropout=False, use_bias=use_bias, init=init)     # (64, 64, 128)
-    d2 = upconv([d3, e2],  64, norm_type=nt, dropout=False, use_bias=use_bias, init=init)     # (128, 128, 64)
-    d1 = upconv([d2, e1], oc, norm_type='none', dropout=False, init=init)                     # (256, 256, output_channels)
+    e8 = downconv(e7, 512, activation=True, norm_type='none', use_bias=use_bias, init=init)       # (1 x 1 x 512)
+    d8 = upconv(e8, 512, norm_type=nt, dropout=False, use_bias=use_bias, init=init)               # (2 x 2 x 512)
+    
+    d7 = upconv([d8, e7], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)          # (4, 4, 512)
+    d6 = upconv([d7, e6], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)          # (8, 8, 512)
+    d5 = upconv([d6, e5], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)          # (16, 16, 512)
+    d4 = upconv([d5, e4], 256, norm_type=nt, dropout=False, use_bias=use_bias, init=init)         # (32, 32, 256)
+    d3 = upconv([d4, e3], 128, norm_type=nt, dropout=False, use_bias=use_bias, init=init)         # (64, 64, 128)
+    d2 = upconv([d3, e2],  64, norm_type=nt, dropout=False, use_bias=use_bias, init=init)         # (128, 128, 64)
+    d1 = upconv([d2, e1], oc, norm_type='none', dropout=False, use_bias=True, init=init)          # (256, 256, output_channels)
     op = Activation('tanh', name='G_activations')(d1)
 
     return inputs, op

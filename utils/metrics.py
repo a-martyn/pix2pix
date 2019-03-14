@@ -81,3 +81,5 @@ class Metrics():
             sns.regplot(x=list(df.index), y=metrics[i], data=df, scatter=False, 
                         lowess=True, ax=ax)
         fig.savefig(out_pth)
+        # close all plots to avoid memory warning
+        plt.close('all')

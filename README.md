@@ -70,6 +70,20 @@ https://github.com/affinelayer/pix2pix-tensorflow/blob/master/pix2pix.py
 - [x] training baseline images from pytorch implementation
 - [x] save model
 - [x] training review webpage with side-by-sides 
+- [x] add metrics plot to web page
+- [x] get initialisation output of other implementations
+- [x] implement learning rate annealing
+- [x] run full cycle
+- [x] fix memory warning
+- [x] discriminator training: two forward passes for each backward
+- [x] seed dataloader
+- [x] set batchnorm momentum to 0.9 per this discussion: https://github.com/pytorch/examples/issues/289
+
+
+- [ ] explain tensorflow discriminator loss discrepance
+- [ ] implement moving average smoothing
+
+
 - [ ] fix patchiness discrepancy
   - [ ] check optimiser settings 
   - [ ] match discriminator deconvolutions
@@ -94,6 +108,7 @@ https://github.com/affinelayer/pix2pix-tensorflow/blob/master/pix2pix.py
 ### Cleanup
 - [ ] conda freeze
 - [ ] report keras training bug on dropout and batch norm layers
+- [ ] remove unused instance norm
 
 
 What is a ReLU?

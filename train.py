@@ -46,19 +46,19 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 # ----------------------------------
 
 
-def d_loss_bce(y_true, y_pred):
+def bce_loss(y_true, y_pred):
+    """ 
+    Binary cross entropy loss.
+    - y_true: array of floats between 0 and 1
+    - y_preds: sigmoid activations output from model
+    """
     EPS = 1e-12
-    x = tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
+    x = -tf.reduce_mean((y_true * tf.log(y_pred + EPS)) + ((1-y_true) * tf.log(1-y_pred + EPS)))
     return x
 
 
-def g_loss_bce(y_true, y_pred):
-    EPS = 1e-12
-    x = tf.reduce_mean((y_true * -tf.log(y_pred + EPS)) + ((1-y_true) * -tf.log(1-y_pred + EPS)))
-    return x
-
-
-def g_loss_l1(y_true, y_pred):
+def l1_loss(y_true, y_pred):
+    """ L1 Loss with mean reduction per PyTorch default """
     # abs(targets - outputs) => 0
     return tf.reduce_mean(tf.abs(y_true - y_pred))
 
@@ -149,6 +149,7 @@ lr_beta1 = 0.5
 lr_decay_start = 100
 lr_decay_end = 100
 lr_scheduler = LrScheduler(lr, lr_decay_start, lr_decay_end)
+seed = np.random.randint(1, 10000)
 
 # Data loader
 # ---------------------------------------------------------
@@ -161,7 +162,7 @@ train_generator = ImageDataGenerator(
     validation_split=0.0
 )
 train_loader = dataLoader(train_pth, train_generator, batch_sz=batch_size, 
-                          shuffle=True, img_sz=input_sz[:2])
+                          shuffle=True, img_sz=input_sz[:2], seed=seed)
 
 check_generator = ImageDataGenerator(
     rescale=1./255,
@@ -171,7 +172,7 @@ check_generator = ImageDataGenerator(
 )
 
 check_loader = dataLoader(checkpoints_pth, check_generator, batch_sz=1, 
-                          shuffle=False, img_sz=(256, 256))
+                          shuffle=False, img_sz=(256, 256), seed=seed)
 
 
 # Optimizers
@@ -183,7 +184,7 @@ optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.
 inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz, 
                                               minibatch_std=minibatch_std)
 discriminator = Model(inputs_dsc, outputs_dsc, name='discriminator')
-discriminator.compile(loss=d_loss_bce, optimizer=optimizer_d, metrics=['accuracy'])
+discriminator.compile(loss=bce_loss, optimizer=optimizer_d, metrics=['accuracy'])
 discriminator.summary()
 
 # Debug 1/3: Record trainable weights in discriminator
@@ -214,7 +215,7 @@ is_real = frozen_discriminator([output_gen, input_gen])
 gan = Model(input_gen, [output_gen, is_real], name='gan')
 gan.summary()
 
-gan.compile(loss=[g_loss_l1, g_loss_bce], 
+gan.compile(loss=[l1_loss, bce_loss], 
             loss_weights=[lambda_L1, 1.0], 
             optimizer=optimizer_g)
 
@@ -267,15 +268,19 @@ for epoch in range(epochs):
         # ----------------------------------------------
         outputs, _ = gan.predict(inputs)
 
-        # Randomly switch the order to ensure discriminator isn't somehow 
+        # Create batch of 2 samples, for real and generated output
+        # Randomly switch the order to ensure discriminator isn't just 
         # memorising train order: Real, Fake, Real, Fake, Real, Fake
         if np.random.random() > 0.5:
-            # Train the discriminators (original images = real / generated = Fake)
-            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
-            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+            Xn = K.concatenate([inputs, inputs], axis=0)
+            Zn = K.concatenate([targets, outputs], axis=0)
+            Yn = K.concatenate([real, fake], axis=0)
         else:
-            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+            Xn = K.concatenate([inputs, inputs], axis=0)
+            Zn = K.concatenate([outputs, targets], axis=0)
+            Yn = K.concatenate([fake, real], axis=0)
+        # perform a single gradient update averaged across this batch
+        d_loss_real, d_acc_real = discriminator.train_on_batch([Zn, Xn], Yn)
 
         # Plot the progress
         if (batch+1) % 100 == 0:
