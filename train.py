@@ -131,7 +131,7 @@ epochs=200
 batch_size=args.batch_size
 sample_interval=400
 
-lambda_L1 = 100   # weight applied to L1 loss in gan
+lambda_L1 = 200.0   # weight applied to L1 loss in gan
 
 dataset_name = 'facades'
 train_metrics_pth = f'results/{dataset_name}/{experiment_title}_train.csv'
@@ -147,7 +147,7 @@ n_samples = 400
 lr = 0.0002
 lr_beta1 = 0.5
 lr_decay_start = 100
-lr_decay_end = 200
+lr_decay_end = 100
 lr_scheduler = LrScheduler(lr, lr_decay_start, lr_decay_end)
 
 # Data loader
@@ -214,8 +214,8 @@ is_real = frozen_discriminator([output_gen, input_gen])
 gan = Model(input_gen, [output_gen, is_real], name='gan')
 gan.summary()
 
-gan.compile(loss=[smoothL1, g_loss_bce], 
-            loss_weights=[lambda_L1, 1], 
+gan.compile(loss=[g_loss_l1, g_loss_bce], 
+            loss_weights=[lambda_L1, 1.0], 
             optimizer=optimizer_g)
 
 # Debug 3/3: assert that...
@@ -278,11 +278,11 @@ for epoch in range(epochs):
             d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
 
         # Plot the progress
-        if batch % 100 == 0:
+        if (batch+1) % 100 == 0:
             elapsed_time = datetime.datetime.now() - start_time
             train_metrics.add({
                 'epoch': epoch,
-                'iters': batch,
+                'iters': batch+1,
                 'G_lr': K.eval(gan.optimizer.lr),
                 'D_lr': K.eval(discriminator.optimizer.lr),
                 'G_L1': g_loss[1],
