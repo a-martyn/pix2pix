@@ -145,7 +145,7 @@ sample_dir = f'results/{dataset_name}/images'
 train_pth = 'data/facades_processed/train'
 # val_pth = 'data/facades_processed/val'
 checkpoints_pth = f'results/{dataset_name}/checkpoints/images'
-metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_loss', 'G_lr']
+metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_loss']
 metrics_plt_pth = f'results/{dataset_name}/checkpoints/metrics.png'
 n_samples = 400
 
