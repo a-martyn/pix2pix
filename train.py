@@ -145,7 +145,7 @@ sample_dir = f'results/{dataset_name}/images'
 train_pth = 'data/facades_processed/train'
 # val_pth = 'data/facades_processed/val'
 checkpoints_pth = f'results/{dataset_name}/checkpoints/images'
-metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_real', 'D_fake', 'G_lr']
+metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_loss', 'G_lr']
 metrics_plt_pth = f'results/{dataset_name}/checkpoints/metrics.png'
 n_samples = 400
 
@@ -293,7 +293,7 @@ for epoch in range(epochs):
         optimizer_d.apply_gradients(zip(grads, discriminator.trainable_variables),
                                     global_step=tf.train.get_or_create_global_step())
         
-        print(batch)
+        
         # # Randomly switch the order to ensure discriminator isn't somehow 
         # # memorising train order: Real, Fake, Real, Fake, Real, Fake
         # if np.random.random() > 0.5:
@@ -315,7 +315,7 @@ for epoch in range(epochs):
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
-                'D_loss': d_loss,
+                'D_loss': d_loss.numpy(),
                 # 'D_fake': d_loss_fake,
                 'time': elapsed_time
         })
