@@ -266,20 +266,15 @@ for epoch in range(epochs):
         # ----------------------------------------------
         outputs, _ = gan.predict(inputs)
 
-        # Create batch of 2 samples, for real and generated output
-        # Randomly switch the order to ensure discriminator isn't just 
+        # Randomly switch the order to ensure discriminator isn't somehow 
         # memorising train order: Real, Fake, Real, Fake, Real, Fake
-
         if np.random.random() > 0.5:
-            Xn = K.concatenate([inputs, inputs], axis=0)
-            Zn = K.concatenate([targets, outputs], axis=0)
-            Yn = K.concatenate([real, fake], axis=0)
+            # Train the discriminators (original images = real / generated = Fake)
+            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
         else:
-            Xn = K.concatenate([inputs, inputs], axis=0)
-            Zn = K.concatenate([outputs, targets], axis=0)
-            Yn = K.concatenate([fake, real], axis=0)
-        # perform a single gradient update averaged across this batch
-        d_loss, d_acc = discriminator.train_on_batch([Zn, Xn], Yn)
+            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
 
         # Plot the progress
         if (batch+1) % 100 == 0:
@@ -292,9 +287,10 @@ for epoch in range(epochs):
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
-                'D_loss': d_loss,
+                'D_real': d_loss_real,
+                'D_fake': d_loss_fake,
                 'time': elapsed_time
-            })
+        })
 
     train_metrics.to_csv()
     train_metrics.plot(metric_keys, metrics_plt_pth)
