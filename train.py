@@ -140,7 +140,7 @@ sample_dir = f'results/{dataset_name}/images'
 train_pth = 'data/facades_processed/train'
 # val_pth = 'data/facades_processed/val'
 checkpoints_pth = f'results/{dataset_name}/checkpoints/images'
-metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_real', 'D_fake', 'G_lr']
+metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_loss', 'G_lr']
 metrics_plt_pth = f'results/{dataset_name}/checkpoints/metrics.png'
 n_samples = 400
 
@@ -232,7 +232,6 @@ print(f'gan.metrics_names: {gan.metrics_names}')
 # Train
 # --------------------------------------------------------
 train_metrics = Metrics(train_metrics_pth)
-val_metrics = Metrics(val_metrics_pth)
 start_time = datetime.datetime.now()
 
 
@@ -243,7 +242,6 @@ start_time = datetime.datetime.now()
 
 real = np.ones((batch_size, ) + discriminator_output_sz)   # real => 1
 fake = np.zeros((batch_size, ) + discriminator_output_sz)  # fake => 0
- 
 
 for epoch in range(epochs):
     gen_checkpoint(gan, check_loader, epoch, checkpoints_pth)
@@ -271,6 +269,7 @@ for epoch in range(epochs):
         # Create batch of 2 samples, for real and generated output
         # Randomly switch the order to ensure discriminator isn't just 
         # memorising train order: Real, Fake, Real, Fake, Real, Fake
+
         if np.random.random() > 0.5:
             Xn = K.concatenate([inputs, inputs], axis=0)
             Zn = K.concatenate([targets, outputs], axis=0)
@@ -280,7 +279,7 @@ for epoch in range(epochs):
             Zn = K.concatenate([outputs, targets], axis=0)
             Yn = K.concatenate([fake, real], axis=0)
         # perform a single gradient update averaged across this batch
-        d_loss_real, d_acc_real = discriminator.train_on_batch([Zn, Xn], Yn)
+        d_loss, d_acc = discriminator.train_on_batch([Zn, Xn], Yn)
 
         # Plot the progress
         if (batch+1) % 100 == 0:
@@ -293,8 +292,7 @@ for epoch in range(epochs):
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
-                'D_real': d_loss_real,
-                'D_fake': d_loss_fake,
+                'D_loss': d_loss,
                 'time': elapsed_time
             })
 

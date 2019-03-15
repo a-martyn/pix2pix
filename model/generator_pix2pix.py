@@ -114,11 +114,11 @@ def downconv(x, out_channels, activation=True, norm_type='batch',
 
 
 def upconv(x, out_channels, norm_type='batch', dropout=False, use_bias=True,
-           init='random_normal', padding=(1, 1)):
+           init='random_normal'):
     
     conv_kwargs = dict(
         use_bias=use_bias,
-        padding='valid', 
+        padding='same', 
         kernel_initializer=init,  
         bias_initializer=init,                  
         data_format='channels_last'
@@ -130,7 +130,9 @@ def upconv(x, out_channels, norm_type='batch', dropout=False, use_bias=True,
     
     # Transpose convolution
     x = ReLU()(x)
-    x = ZeroPadding2D(padding=padding)(x)
+#     x = UpSampling2D(size=(2, 2))(x)
+#     x = ZeroPadding2D(padding=padding)(x)
+#     x = Conv2D(out_channels, 3, strides=1, **conv_kwargs)(x)
     x = Conv2DTranspose(out_channels, 4, strides=2, **conv_kwargs)(x)
     x = normalisation(x, norm_type=norm_type)
     if dropout: x = Dropout(0.5)(x)
@@ -182,8 +184,8 @@ def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1,
     
     # innermost
     e8 = downconv(e7, 512, activation=True, norm_type='none', use_bias=use_bias, 
-                  init=init, padding=(2, 2))                                                      # (2, 2, 512) Authors': (1 x 1 x 512)
-    d8 = upconv(e8, 512, norm_type=nt, dropout=False, use_bias=use_bias, init=init)               # (2, 2, 512) Authors': (2 x 2 x 512)
+                  init=init, padding=(1, 1))                                             # (1, 1, 512) Authors': (1 x 1 x 512)
+    d8 = upconv(e8, 512, norm_type=nt, dropout=False, use_bias=use_bias, init=init)      # (2, 2, 512) Authors': (2 x 2 x 512)
     
     d7 = upconv([d8, e7], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)          # (4, 4, 512)
     d6 = upconv([d7, e6], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)          # (8, 8, 512)
