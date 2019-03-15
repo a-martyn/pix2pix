@@ -4,6 +4,11 @@ import datetime
 import argparse
 
 import tensorflow as tf
+tf.enable_eager_execution()
+
+print("TensorFlow version: {}".format(tf.__version__))
+print("Eager execution: {}".format(tf.executing_eagerly()))
+
 import tensorflow.keras.backend as K
 from tensorflow.python.keras.engine.network import Network
 from tensorflow.keras.layers import Input
@@ -176,8 +181,10 @@ check_loader = dataLoader(checkpoints_pth, check_generator, batch_sz=1,
 
 
 # Optimizers
-optimizer_d = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
-optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+optimizer_d = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
+optimizer_g = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
+#optimizer_d = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+#optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
 
 # Build and compile Discriminator
 # ---------------------------------------------------------
@@ -234,14 +241,23 @@ print(f'gan.metrics_names: {gan.metrics_names}')
 train_metrics = Metrics(train_metrics_pth)
 start_time = datetime.datetime.now()
 
-
-# ganhack2: modified loss function/label flip real => 0
-# label smoothing: real => 0.0 - 0.1
-# real = np.random.random_sample((batch_size, ) + discriminator_output_sz) * 0.1 
-# fake = np.ones((batch_size, ) + discriminator_output_sz)   # fake => 1
-
 real = np.ones((batch_size, ) + discriminator_output_sz)   # real => 1
 fake = np.zeros((batch_size, ) + discriminator_output_sz)  # fake => 0
+
+def loss(model, x, y_true):
+    y_pred, y_disc = model(x)
+    return tf.reduce_mean(tf.abs(y_true - y_pred))
+
+def bce_loss(model, x, y_true):
+    """ 
+    Binary cross entropy loss.
+    - y_true: array of floats between 0 and 1
+    - y_preds: sigmoid activations output from model
+    """
+    EPS = 1e-12
+    y_pred = model([x[0], x[1]])
+    x = -tf.reduce_mean((y_true * tf.log(y_pred + EPS)) + ((1-y_true) * tf.log(1-y_pred + EPS)))
+    return x
 
 for epoch in range(epochs):
     gen_checkpoint(gan, check_loader, epoch, checkpoints_pth)
@@ -250,13 +266,15 @@ for epoch in range(epochs):
         
         inputs, targets = next(train_loader)
 
-        # Learning rate annealing
-        # ----------------------------------------------
-        new_lr = lr_scheduler.update(epoch)
-        K.set_value(gan.optimizer.lr, new_lr)
-        K.set_value(discriminator.optimizer.lr, new_lr)
 
-        #  Train Generator
+        # TODO implement for tensorflow
+        # # Learning rate annealing
+        # # ----------------------------------------------
+        # new_lr = lr_scheduler.update(epoch)
+        # K.set_value(gan.optimizer.lr, new_lr)
+        # K.set_value(discriminator.optimizer.lr, new_lr)
+
+        # Train Generator
         # ----------------------------------------------
         # Train the generators in GAN setting
         g_loss = gan.train_on_batch([inputs], [targets, real])
@@ -266,15 +284,25 @@ for epoch in range(epochs):
         # ----------------------------------------------
         outputs, _ = gan.predict(inputs)
 
-        # Randomly switch the order to ensure discriminator isn't somehow 
-        # memorising train order: Real, Fake, Real, Fake, Real, Fake
-        if np.random.random() > 0.5:
-            # Train the discriminators (original images = real / generated = Fake)
-            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
-            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-        else:
-            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+        with tf.GradientTape() as tape:
+            d_loss_fake = bce_loss(discriminator, [outputs, inputs], fake)
+            d_loss_real = bce_loss(discriminator, [targets, inputs], real)
+            d_loss = 0.5 * (d_loss_fake + d_loss_real)
+
+        grads = tape.gradient(d_loss, discriminator.trainable_variables)
+        optimizer_d.apply_gradients(zip(grads, discriminator.trainable_variables),
+                                    global_step=tf.train.get_or_create_global_step())
+        
+        print(batch)
+        # # Randomly switch the order to ensure discriminator isn't somehow 
+        # # memorising train order: Real, Fake, Real, Fake, Real, Fake
+        # if np.random.random() > 0.5:
+        #     # Train the discriminators (original images = real / generated = Fake)
+        #     d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+        #     d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+        # else:
+        #     d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+        #     d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
 
         # Plot the progress
         if (batch+1) % 100 == 0:
@@ -282,20 +310,18 @@ for epoch in range(epochs):
             train_metrics.add({
                 'epoch': epoch,
                 'iters': batch+1,
-                'G_lr': K.eval(gan.optimizer.lr),
-                'D_lr': K.eval(discriminator.optimizer.lr),
+                # 'G_lr': K.eval(gan.optimizer.lr),
+                # 'D_lr': K.eval(discriminator.optimizer.lr),
                 'G_L1': g_loss[1],
                 'G_GAN': g_loss[2],
                 'G_total': g_loss[0],
-                'D_real': d_loss_real,
-                'D_fake': d_loss_fake,
+                'D_loss': d_loss,
+                # 'D_fake': d_loss_fake,
                 'time': elapsed_time
         })
 
     train_metrics.to_csv()
     train_metrics.plot(metric_keys, metrics_plt_pth)
-    # real_labels = np.zeros((1, ) + discriminator_output_sz) # no label smoothing at test time
-    # evaluate_val(gan, discriminator, val_loader, real_labels, sample_dir, epoch, batch, experiment_title, val_metrics)
 
 # Save models
 gan.save(f'pretrained/{experiment_title}_gan.h5')

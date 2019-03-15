@@ -7,7 +7,7 @@ from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from tensorflow.contrib.layers import instance_norm
+
 # from tensorflow.python.keras.layers import Lambda
 
 
