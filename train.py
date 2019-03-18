@@ -11,7 +11,7 @@ print("Eager execution: {}".format(tf.executing_eagerly()))
 
 import tensorflow.keras.backend as K
 from tensorflow.python.keras.engine.network import Network
-from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Input, Concatenate
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -50,7 +50,6 @@ https://github.com/keras-team/keras/issues/8585#issuecomment-412728017
 # Losses
 # ----------------------------------
 
-
 def bce_loss(y_true, y_pred):
     """ 
     Binary cross entropy loss.
@@ -68,44 +67,71 @@ def l1_loss(y_true, y_pred):
     return tf.reduce_mean(tf.abs(y_true - y_pred))
 
 
+def d_loss_fn(model, x, y_true):
+    """ """
+    EPS = 1e-12
+    y_pred = model([x[0], x[1]])
+    loss_disc = bce_loss(y_true, y_pred)
+    return loss_disc
+
+def g_loss_fn(model, x, y_true, lambda_L1):
+    """  """
+    # abs(targets - outputs) => 0
+    EPS = 1e-12
+    g_pred, d_pred = model(x)
+    loss_L1 = l1_loss(y_true[0], g_pred) * lambda_L1
+    loss_gan = bce_loss(y_true[1], d_pred)
+    loss_total = loss_gan + loss_L1
+    return loss_total, loss_L1, loss_gan
+
 
 # Learning rate
 # ----------------------------------
+def gen_lr_schedule(lr_init, decay_start, decay_end, steps_per_epoch):
+    """ """
+    def get_lr(current_epoch, final_epoch, lr_init):
+        return lr_init - ((lr_init / final_epoch) * current_epoch)
+    
+    decay_interval = decay_end - decay_start + 1
+    epochs = np.arange(1, decay_interval, dtype=np.int32)
+    boundaries = list(steps_per_epoch * (epochs + decay_start))[:-1]
+    values = [get_lr(e, decay_interval, lr_init) for e in epochs]
+    return boundaries, values
 
-class LrScheduler():
-    """
-    keep the same learning rate for the first <niter> epochs 
-    and linearly decay the rate to zero over the next <niter_decay> epochs
+# class LrScheduler():
+#     """
+#     keep the same learning rate for the first <niter> epochs 
+#     and linearly decay the rate to zero over the next <niter_decay> epochs
     
     
-             | ________________
-             |                 \
-             |                  \
-          lr |                   \
-             |                    \
-             |--------------------------
-                       epochs
+#              | ________________
+#              |                 \
+#              |                  \
+#           lr |                   \
+#              |                    \
+#              |--------------------------
+#                        epochs
 
-    - init_lr: the initial learning rate
-    - decay_start: number of epochs before learning rate reduction begins
-    - decay_end: the epoch on which learning rate reaches zero
+#     - init_lr: the initial learning rate
+#     - decay_start: number of epochs before learning rate reduction begins
+#     - decay_end: the epoch on which learning rate reaches zero
     
-    """
+#     """
     
-    def __init__(self, init_lr: float, decay_start: int, decay_end: int):
-        # linear so stepsize is constant
-        self.init_lr = init_lr
-        self.lr_step = init_lr / decay_end
-        self.decay_start = decay_start
+#     def __init__(self, init_lr: float, decay_start: int, decay_end: int):
+#         # linear so stepsize is constant
+#         self.init_lr = init_lr
+#         self.lr_step = init_lr / decay_end
+#         self.decay_start = decay_start
         
 
-    def update(self, epoch: int):
-        if epoch < self.decay_start:
-            # do nothing
-            return self.init_lr
-        else:
-            new_lr = self.init_lr - (self.lr_step * (epoch - self.decay_start))
-            return new_lr
+#     def update(self, epoch: int):
+#         if epoch < self.decay_start:
+#             # do nothing
+#             return self.init_lr
+#         else:
+#             new_lr = self.init_lr - (self.lr_step * (epoch - self.decay_start))
+#             return new_lr
 
 
 # Options
@@ -145,16 +171,16 @@ sample_dir = f'results/{dataset_name}/images'
 train_pth = 'data/facades_processed/train'
 # val_pth = 'data/facades_processed/val'
 checkpoints_pth = f'results/{dataset_name}/checkpoints/images'
-metric_keys = ['G_L1', 'G_GAN', 'G_total', 'D_loss']
+metric_keys = ['G_total', 'G_L1', 'G_GAN', 'D_loss'] 
 metrics_plt_pth = f'results/{dataset_name}/checkpoints/metrics.png'
 n_samples = 400
 
 lr = 0.0002
 lr_beta1 = 0.5
 lr_decay_start = 100
-lr_decay_end = 100
+lr_decay_end = 200
 lr_scheduler = LrScheduler(lr, lr_decay_start, lr_decay_end)
-seed = np.random.randint(1, 10000)
+seed = 9678 #np.random.randint(1, 10000)
 
 # Data loader
 # ---------------------------------------------------------
@@ -169,6 +195,10 @@ train_generator = ImageDataGenerator(
 train_loader = dataLoader(train_pth, train_generator, batch_sz=batch_size, 
                           shuffle=True, img_sz=input_sz[:2], seed=seed)
 
+d_loader = dataLoader(train_pth, train_generator, batch_sz=batch_size, 
+                      shuffle=True, img_sz=input_sz[:2], seed=seed+21)
+
+
 check_generator = ImageDataGenerator(
     rescale=1./255,
     fill_mode='constant',
@@ -180,139 +210,144 @@ check_loader = dataLoader(checkpoints_pth, check_generator, batch_sz=1,
                           shuffle=False, img_sz=(256, 256), seed=seed)
 
 
-# Optimizers
-# optimizer_d = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
-# optimizer_g = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
-optimizer_d = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
-optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
-
-# Build and compile Discriminator
+# Optimizers and learning rate annealing
 # ---------------------------------------------------------
-inputs_dsc, outputs_dsc = build_discriminator(input_size=input_sz, 
-                                              minibatch_std=minibatch_std)
-discriminator = Model(inputs_dsc, outputs_dsc, name='discriminator')
-discriminator.compile(loss=bce_loss, optimizer=optimizer_d, metrics=['accuracy'])
+
+# Linear reduction in learning rate to zero after 100th epoch
+boundaries, values = gen_lr_schedule(lr, lr_decay_start, lr_decay_end, n_samples)
+# this is a function because we're in eager execution mode
+lr_fn = tf.train.piecewise_constant(global_step, boundaries, values)
+
+# Optimizers
+
+optimizer_d = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
+optimizer_g = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
+# optimizer_d = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+# optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+
+# Build discriminator
+# ---------------------------------------------------------
+d_input, d_output = build_discriminator(input_size=input_sz, 
+                                          minibatch_std=minibatch_std)
+discriminator = Model(d_input, d_output, name='discriminator')
+# discriminator.compile(loss=bce_loss, optimizer=optimizer_d, metrics=['accuracy'])
 discriminator.summary()
 
-# Debug 1/3: Record trainable weights in discriminator
-ntrainable_dsc = len(discriminator.trainable_weights)
+# # Debug 1/3: Record trainable weights in discriminator
+# ntrainable_dsc = len(discriminator.trainable_weights)
 
 
 # Build frozen Discriminator without learnable params
 # ---------------------------------------------------------
-frozen_discriminator = Network(inputs_dsc, outputs_dsc, 
-                               name='frozen_discriminator')
-frozen_discriminator.trainable = False
+# frozen_discriminator = Network(inputs_dsc, outputs_dsc, 
+#                                name='frozen_discriminator')
+# frozen_discriminator.trainable = False
 
 
 # Build Generator
 # ---------------------------------------------------------        
-input_gen, output_gen = build_generator(norm_type=norm_type, 
-                                        input_size=input_sz, 
-                                        output_channels=input_sz[-1])
-generator = Model(input_gen, output_gen, name='generator')
+g_input, g_output = build_generator(norm_type=norm_type, 
+                                    input_size=input_sz, 
+                                    output_channels=input_sz[-1])
+generator = Model(g_input, g_output, name='generator')
 generator.summary()
 
-# Debug  2/3: Record trainable weights in generator
-ntrainable_gen = len(generator.trainable_weights)
+# # Debug  2/3: Record trainable weights in generator
+# ntrainable_gen = len(generator.trainable_weights)
 
-# Build GAN and compile
+# Build GAN
 # ---------------------------------------------------------  
-is_real = frozen_discriminator([output_gen, input_gen])
-gan = Model(input_gen, [output_gen, is_real], name='gan')
+g_output_gan = generator(g_input)
+d_output_gan = discriminator([g_output_gan, g_input])
+gan = Model(g_input, [g_output_gan, d_output_gan], name='gan')
 gan.summary()
 
-gan.compile(loss=[l1_loss, bce_loss], 
-            loss_weights=[lambda_L1, 1.0], 
-            optimizer=optimizer_g)
+# gan.compile(loss=[l1_loss, bce_loss], 
+#             loss_weights=[lambda_L1, 1.0], 
+#             optimizer=optimizer_g)
 
-# Debug 3/3: assert that...
-# The discriminator has trainable weights
-assert(len(discriminator._collected_trainable_weights) == ntrainable_dsc)
-# Only the generators weights are trainable in the GAN model
-assert(len(gan._collected_trainable_weights) == ntrainable_gen)
+# # Debug 3/3: assert that...
+# # The discriminator has trainable weights
+# assert(len(discriminator._collected_trainable_weights) == ntrainable_dsc)
+# # Only the generators weights are trainable in the GAN model
+# assert(len(gan._collected_trainable_weights) == ntrainable_gen)
 
 
-print(f'discriminator.metrics_names: {discriminator.metrics_names}')
-print(f'gan.metrics_names: {gan.metrics_names}')
+# print(f'discriminator.metrics_names: {discriminator.metrics_names}')
+# print(f'gan.metrics_names: {gan.metrics_names}')
 
 # Train
 # --------------------------------------------------------
+global_step = tf.Variable(0, trainable=False)
+
 train_metrics = Metrics(train_metrics_pth)
 start_time = datetime.datetime.now()
 
 real = np.ones((batch_size, ) + discriminator_output_sz)   # real => 1
 fake = np.zeros((batch_size, ) + discriminator_output_sz)  # fake => 0
 
-
-# def bce_loss(model, x, y_true):
-#     """ 
-#     Binary cross entropy loss.
-#     - y_true: array of floats between 0 and 1
-#     - y_preds: sigmoid activations output from model
-#     """
-#     EPS = 1e-12
-#     y_pred = model([x[0], x[1]])
-#     x = -tf.reduce_mean((y_true * tf.log(y_pred + EPS)) + ((1-y_true) * tf.log(1-y_pred + EPS)))
-#     return x
-
 for epoch in range(epochs):
     gen_checkpoint(gan, check_loader, epoch, checkpoints_pth)
     build_results_page(epoch)
     for batch in range(n_samples):                
-        
-        inputs, targets = next(train_loader)
-
-
-        # TODO implement for tensorflow
-        # # Learning rate annealing
-        # # ----------------------------------------------        
-        new_lr = lr_scheduler.update(epoch)
-        if new_lr != lr:
-            lr = new_lr
-            K.set_value(gan.optimizer.lr, new_lr)
-            K.set_value(discriminator.optimizer.lr, new_lr)
-
-        # Train Generator
-        # ----------------------------------------------
-        # Train the generators in GAN setting
-        g_loss = gan.train_on_batch([inputs], [targets, real])
-
 
         #  Train Discriminator
         # ----------------------------------------------
+        inputs, targets = next(d_loader)
+        
         outputs, _ = gan.predict(inputs)
 
-        # --
-        # Randomly switch the order to ensure discriminator isn't somehow 
-        # memorising train order: Real, Fake, Real, Fake, Real, Fake
-        if np.random.random() > 0.5:
-            # Train the discriminators (original images = real / generated = Fake)
-            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
-            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-        else:
-            d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-            d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+#         if np.random.random() > 0.5:
+#             z = Concatenate(axis=0)([targets, outputs]) 
+#             x = Concatenate(axis=0)([inputs, inputs])
+#             y = Concatenate(axis=0)([real, fake])
+#             d_loss, d_acc = discriminator.train_on_batch([z, x], y)
+#         else:
+#             z = Concatenate(axis=0)([outputs, targets]) 
+#             x = Concatenate(axis=0)([inputs, inputs])
+#             y = Concatenate(axis=0)([fake, real])
+#             d_loss, d_acc = discriminator.train_on_batch([z, x], y) 
             
-        d_loss = 0.5 * (d_loss_fake + d_loss_real)
+
+#         # Randomly switch the order to ensure discriminator isn't somehow 
+#         # memorising train order: Real, Fake, Real, Fake, Real, Fake
+#         if np.random.random() > 0.5:
+#             # Train the discriminators (original images = real / generated = Fake)
+#             d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+#             d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+#         else:
+#             d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
+#             d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
+            
+#         d_loss = 0.5 * (d_loss_fake + d_loss_real)
+        
+        
         
         #  Custom discriminator training
         # ----------------------------------------------
-#         with tf.GradientTape() as tape:
-#             d_loss_fake = bce_loss(discriminator, [outputs, inputs], fake)
+        with tf.GradientTape() as tape:
+            d_loss_fake = d_loss_fn(discriminator, [outputs, inputs], fake)
+            d_loss_real = d_loss_fn(discriminator, [targets, inputs], real)
+            d_loss_total = 0.5 * (d_loss_fake + d_loss_real)
 
-#         grads = tape.gradient(d_loss_fake, discriminator.trainable_variables)
-#         optimizer_d.apply_gradients(zip(grads, discriminator.trainable_variables),
-#                                     global_step=tf.train.get_or_create_global_step())
+        grads = tape.gradient(d_loss_total, discriminator.trainable_variables)
+        optimizer_d.apply_gradients(zip(grads, discriminator.trainable_variables))
+               
         
-#         with tf.GradientTape() as tape:
-#             d_loss_real = bce_loss(discriminator, [targets, inputs], real)
+        
+        # Train Generator
+        # ----------------------------------------------
+        # Train the generators in GAN setting
+        #g_loss = gan.train_on_batch([inputs], [targets, real])
+ 
+        inputs, targets = next(train_loader)
+        
+        with tf.GradientTape() as tape:
+            g_loss_total, g_loss_L1, g_loss_gan = g_loss_fn(gan, inputs, [targets, real], lambda_L1)
 
-#         grads = tape.gradient(d_loss_real, discriminator.trainable_variables)
-#         optimizer_d.apply_gradients(zip(grads, discriminator.trainable_variables),
-#                                     global_step=tf.train.get_or_create_global_step())        
+        grads = tape.gradient(g_loss_total, generator.trainable_variables)
+        optimizer_g.apply_gradients(zip(grads, generator.trainable_variables), global_step=global_step)
         
-#         d_loss = 0.5 * (d_loss_fake.numpy() + d_loss_real.numpy())
         
 
         # Plot the progress
@@ -321,12 +356,12 @@ for epoch in range(epochs):
             train_metrics.add({
                 'epoch': epoch,
                 'iters': batch+1,
-                'G_lr': K.eval(gan.optimizer.lr),
-                'D_lr': K.eval(discriminator.optimizer.lr),
-                'G_L1': g_loss[1],
-                'G_GAN': g_loss[2],
-                'G_total': g_loss[0],
-                'D_loss': d_loss,
+#                 'G_lr': K.eval(gan.optimizer.lr),
+#                 'D_lr': K.eval(discriminator.optimizer.lr),
+                'G_L1': g_loss_L1.numpy(),
+                'G_GAN': g_loss_gan.numpy(),
+                'G_total': g_loss_total.numpy(), #[0],
+                'D_loss': d_loss_total.numpy(),
                 # 'D_fake': d_loss_fake,
                 'time': elapsed_time,
                 'random_seed': seed
@@ -334,6 +369,14 @@ for epoch in range(epochs):
 
     train_metrics.to_csv()
     train_metrics.plot(metric_keys, metrics_plt_pth)
+    
+    # Learning rate annealing
+    # ----------------------------------------------        
+#     new_lr = lr_scheduler.update(epoch)
+#     if new_lr != lr:
+#         lr = new_lr
+#         K.set_value(gan.optimizer.lr, new_lr)
+#         K.set_value(discriminator.optimizer.lr, new_lr)
 
 # Save models
 gan.save(f'pretrained/{experiment_title}_gan.h5')

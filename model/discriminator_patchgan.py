@@ -100,11 +100,11 @@ def patchgan70(input_size=(256, 256, 3), init_gain=0.02, minibatch_std=False):
     x = conv_layer(x, 128, 4, strides=2, batch_norm=True, init=init, use_bias=False)          # ( 64,  64, 128) TRF=10
     #if minibatch_std: x = Lambda(minibatch_stddev_layer)(x)
     x = conv_layer(x, 256, 4, strides=2, batch_norm=True, init=init, use_bias=False)          # ( 32,  32, 256) TRF=22
-    x = conv_layer(x, 512, 4, strides=1, batch_norm=True, init=init, use_bias=False)          # ( 32,  32, 512) TRF=46 
+    x = conv_layer(x, 512, 4, strides=1, batch_norm=True, init=init, use_bias=False)          # ( 31,  31, 512) TRF=46 
     
     op = ZeroPadding2D(padding=(1, 1))(x)
     op = Conv2D(1, 4, strides=1, padding='valid', name='D_logits', 
-                kernel_initializer=init, bias_initializer=init, use_bias=True)(op)           # ( 32,   32,  1) TRF=70
+                kernel_initializer=init, bias_initializer=init, use_bias=True)(op)           # ( 30,   30,  1) TRF=70
     op = Activation('sigmoid', name='D_activations')(op)
     
     inputs=[img_A, img_B]
