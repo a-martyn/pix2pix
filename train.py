@@ -98,41 +98,6 @@ def gen_lr_schedule(lr_init, decay_start, decay_end, steps_per_epoch):
     values = [get_lr(e, decay_interval, lr_init) for e in epochs]
     return boundaries, values
 
-# class LrScheduler():
-#     """
-#     keep the same learning rate for the first <niter> epochs 
-#     and linearly decay the rate to zero over the next <niter_decay> epochs
-    
-    
-#              | ________________
-#              |                 \
-#              |                  \
-#           lr |                   \
-#              |                    \
-#              |--------------------------
-#                        epochs
-
-#     - init_lr: the initial learning rate
-#     - decay_start: number of epochs before learning rate reduction begins
-#     - decay_end: the epoch on which learning rate reaches zero
-    
-#     """
-    
-#     def __init__(self, init_lr: float, decay_start: int, decay_end: int):
-#         # linear so stepsize is constant
-#         self.init_lr = init_lr
-#         self.lr_step = init_lr / decay_end
-#         self.decay_start = decay_start
-        
-
-#     def update(self, epoch: int):
-#         if epoch < self.decay_start:
-#             # do nothing
-#             return self.init_lr
-#         else:
-#             new_lr = self.init_lr - (self.lr_step * (epoch - self.decay_start))
-#             return new_lr
-
 
 # Options
 # ---------------------------------------------------------
@@ -179,11 +144,12 @@ lr = 0.0002
 lr_beta1 = 0.5
 lr_decay_start = 100
 lr_decay_end = 200
-lr_scheduler = LrScheduler(lr, lr_decay_start, lr_decay_end)
 seed = 9678 #np.random.randint(1, 10000)
+
 
 # Data loader
 # ---------------------------------------------------------
+
 train_generator = ImageDataGenerator(
     rescale=1./255,
     zoom_range=[0.8, 1.0],
@@ -210,8 +176,9 @@ check_loader = dataLoader(checkpoints_pth, check_generator, batch_sz=1,
                           shuffle=False, img_sz=(256, 256), seed=seed)
 
 
-# Optimizers and learning rate annealing
+# Learning rate annealing
 # ---------------------------------------------------------
+global_step = tf.Variable(0, trainable=False)
 
 # Linear reduction in learning rate to zero after 100th epoch
 boundaries, values = gen_lr_schedule(lr, lr_decay_start, lr_decay_end, n_samples)
@@ -219,29 +186,18 @@ boundaries, values = gen_lr_schedule(lr, lr_decay_start, lr_decay_end, n_samples
 lr_fn = tf.train.piecewise_constant(global_step, boundaries, values)
 
 # Optimizers
+# ---------------------------------------------------------
 
-optimizer_d = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
-optimizer_g = tf.train.AdamOptimizer(learning_rate=lr, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
-# optimizer_d = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
-# optimizer_g = Adam(lr=lr, beta_1=lr_beta1, beta_2=0.999, epsilon=1e-08, decay=0.0)
+optimizer_d = tf.train.AdamOptimizer(learning_rate=lr_fn, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
+optimizer_g = tf.train.AdamOptimizer(learning_rate=lr_fn, beta1=lr_beta1, beta2=0.999, epsilon=1e-08)
+
 
 # Build discriminator
 # ---------------------------------------------------------
 d_input, d_output = build_discriminator(input_size=input_sz, 
                                           minibatch_std=minibatch_std)
 discriminator = Model(d_input, d_output, name='discriminator')
-# discriminator.compile(loss=bce_loss, optimizer=optimizer_d, metrics=['accuracy'])
 discriminator.summary()
-
-# # Debug 1/3: Record trainable weights in discriminator
-# ntrainable_dsc = len(discriminator.trainable_weights)
-
-
-# Build frozen Discriminator without learnable params
-# ---------------------------------------------------------
-# frozen_discriminator = Network(inputs_dsc, outputs_dsc, 
-#                                name='frozen_discriminator')
-# frozen_discriminator.trainable = False
 
 
 # Build Generator
@@ -252,8 +208,6 @@ g_input, g_output = build_generator(norm_type=norm_type,
 generator = Model(g_input, g_output, name='generator')
 generator.summary()
 
-# # Debug  2/3: Record trainable weights in generator
-# ntrainable_gen = len(generator.trainable_weights)
 
 # Build GAN
 # ---------------------------------------------------------  
@@ -262,23 +216,9 @@ d_output_gan = discriminator([g_output_gan, g_input])
 gan = Model(g_input, [g_output_gan, d_output_gan], name='gan')
 gan.summary()
 
-# gan.compile(loss=[l1_loss, bce_loss], 
-#             loss_weights=[lambda_L1, 1.0], 
-#             optimizer=optimizer_g)
-
-# # Debug 3/3: assert that...
-# # The discriminator has trainable weights
-# assert(len(discriminator._collected_trainable_weights) == ntrainable_dsc)
-# # Only the generators weights are trainable in the GAN model
-# assert(len(gan._collected_trainable_weights) == ntrainable_gen)
-
-
-# print(f'discriminator.metrics_names: {discriminator.metrics_names}')
-# print(f'gan.metrics_names: {gan.metrics_names}')
 
 # Train
 # --------------------------------------------------------
-global_step = tf.Variable(0, trainable=False)
 
 train_metrics = Metrics(train_metrics_pth)
 start_time = datetime.datetime.now()
@@ -295,33 +235,7 @@ for epoch in range(epochs):
         # ----------------------------------------------
         inputs, targets = next(d_loader)
         
-        outputs, _ = gan.predict(inputs)
-
-#         if np.random.random() > 0.5:
-#             z = Concatenate(axis=0)([targets, outputs]) 
-#             x = Concatenate(axis=0)([inputs, inputs])
-#             y = Concatenate(axis=0)([real, fake])
-#             d_loss, d_acc = discriminator.train_on_batch([z, x], y)
-#         else:
-#             z = Concatenate(axis=0)([outputs, targets]) 
-#             x = Concatenate(axis=0)([inputs, inputs])
-#             y = Concatenate(axis=0)([fake, real])
-#             d_loss, d_acc = discriminator.train_on_batch([z, x], y) 
-            
-
-#         # Randomly switch the order to ensure discriminator isn't somehow 
-#         # memorising train order: Real, Fake, Real, Fake, Real, Fake
-#         if np.random.random() > 0.5:
-#             # Train the discriminators (original images = real / generated = Fake)
-#             d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
-#             d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-#         else:
-#             d_loss_fake, d_acc_fake = discriminator.train_on_batch([outputs, inputs], fake)
-#             d_loss_real, d_acc_real = discriminator.train_on_batch([targets, inputs], real)
-            
-#         d_loss = 0.5 * (d_loss_fake + d_loss_real)
-        
-        
+        outputs, _ = gan.predict(inputs)  
         
         #  Custom discriminator training
         # ----------------------------------------------
@@ -356,13 +270,12 @@ for epoch in range(epochs):
             train_metrics.add({
                 'epoch': epoch,
                 'iters': batch+1,
-#                 'G_lr': K.eval(gan.optimizer.lr),
-#                 'D_lr': K.eval(discriminator.optimizer.lr),
+                'G_lr': optimizer_g._lr_t.numpy(),
+                'D_lr': optimizer_d._lr_t.numpy(),
                 'G_L1': g_loss_L1.numpy(),
                 'G_GAN': g_loss_gan.numpy(),
-                'G_total': g_loss_total.numpy(), #[0],
+                'G_total': g_loss_total.numpy(),
                 'D_loss': d_loss_total.numpy(),
-                # 'D_fake': d_loss_fake,
                 'time': elapsed_time,
                 'random_seed': seed
         })
@@ -370,13 +283,6 @@ for epoch in range(epochs):
     train_metrics.to_csv()
     train_metrics.plot(metric_keys, metrics_plt_pth)
     
-    # Learning rate annealing
-    # ----------------------------------------------        
-#     new_lr = lr_scheduler.update(epoch)
-#     if new_lr != lr:
-#         lr = new_lr
-#         K.set_value(gan.optimizer.lr, new_lr)
-#         K.set_value(discriminator.optimizer.lr, new_lr)
 
 # Save models
 gan.save(f'pretrained/{experiment_title}_gan.h5')
