@@ -1,8 +1,9 @@
-results/facades/images_old/*
-results/facades/images/*
-results/artworks
+# Data dirs
+data/facades
+data/facades_processed/test/*
+data/facades_processed/train/*
+data/facades_processed/val/*
 pretrained/*
-results/facades_old
 
 # DS store
 .DS_Store

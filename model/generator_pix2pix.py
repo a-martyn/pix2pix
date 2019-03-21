@@ -8,71 +8,19 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
 
-# from tensorflow.python.keras.layers import Lambda
-
-
-# def tfdropout(x):
-#     """
-#     Dropout applied at training AND inference time.
-
-#     Can't use keras implementation 
-#     due to TypeError: ('Keyword not understood': 'training')
-#     """
-#     return tf.layers.dropout(x, rate=0.5, training=True)
-
-
-# def instanceNorm(x):
-#     """
-#     Normalisation using statistics of the current batch at both traininf
-#     and inference time. Implemented by setting training=True.
-    
-#     Is Instance Normalisation so long as batch_size == 1. 
-#     https://www.tensorflow.org/api_docs/python/tf/contrib/layers/instance_norm
-#     but didn't seem to work in practice
-    
-#     Note:
-#     tf.keras.layers.BatchNormalization wasn't usable in tf v1.12 because it didn't
-#     recognise `training` argument, despite docs saying it does.
-#     """
-#     return tf.layers.batch_normalization(
-#         x, 
-#         axis=-1, 
-#         epsilon=1e-5, 
-#         momentum=0.1, 
-#         # apply at both training AND inference time.
-#         training=True,
-#         # To achieve instance normalisation normalise each sample individually
-#         # For explanation of instance norm see Fig.2 here: https://arxiv.org/pdf/1803.08494.pdf
-#         virtual_batch_size=1,
-#         gamma_initializer=tf.random_normal_initializer(1.0, 0.02)
-#     )
-
-# def batchNorm(x):
-#     """
-#     """
-#     return tf.layers.batch_normalization(
-#         x,
-#         axis=-1,         # because data_loader returns channels last
-#         momentum=0.1,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
-#         epsilon=1e-5,    # match pytorch defaults
-#         beta_initializer='zeros',
-#         gamma_initializer=tf.initializers.random_uniform(0.0, 1.0), # equivalent to pytorch default
-#         center=True,     # equivalent to affine=True
-#         scale=True,      # equivalent to affine=True
-#         trainable=True,  
-#         # apply at both training AND inference time.
-#         training=True
-#     )
 
 
 def normalisation(x, norm_type='batch'):
-    # Pytorch Batch Norm
-    # nn.BatchNorm2d(eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    # By default, the elements of γ are sampled from U(0,1)\mathcal{U}(0, 1)U(0,1)
-    # and the elements of β\betaβ are set to 0
-    # Because affine == true, no conv bias is required
-    # useful ref: https://discuss.pytorch.org/t/convering-a-batch-normalization-layer-from-tf-to-pytorch/20407
-    
+    """
+    Authors use default batch normalisation settings in PyTorch:
+    - `nn.BatchNorm2d(eps=1e-05, momentum=0.1, affine=True, 
+                    track_running_stats=True)`
+    - By default, gamma is initialised from U(0,1) and elements of β are zero
+    - No conv bias is required because affine parameters are used
+    - useful ref: https://discuss.pytorch.org/t/ \
+      convering-a-batch-normalization-layer-from-tf-to-pytorch/20407
+    """
+
     bn_kwargs = dict(
         axis=-1,         # because data_loader returns channels last
         momentum=0.9,    # equivalent to pytorch defaults used by author (0.1 in pytorch -> 0.9 in keras/tf)
@@ -86,8 +34,6 @@ def normalisation(x, norm_type='batch'):
     
     if norm_type == 'batch':
         x = BatchNormalization(**bn_kwargs)(x)
-    elif norm_type == 'instance':
-        x = Lambda(instanceNorm)(x)
     elif norm_type == 'none':
         pass
     else:
@@ -130,9 +76,6 @@ def upconv(x, out_channels, norm_type='batch', dropout=False, use_bias=True,
     
     # Transpose convolution
     x = ReLU()(x)
-#     x = UpSampling2D(size=(2, 2))(x)
-#     x = ZeroPadding2D(padding=padding)(x)
-#     x = Conv2D(out_channels, 3, strides=1, **conv_kwargs)(x)
     x = Conv2DTranspose(out_channels, 4, strides=2, **conv_kwargs)(x)
     x = normalisation(x, norm_type=norm_type)
     if dropout: x = Dropout(0.5)(x)
@@ -142,8 +85,7 @@ def upconv(x, out_channels, norm_type='batch', dropout=False, use_bias=True,
 # INTENDED API
 # ------------------------------------------------------------------------------
 
-def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1, 
-                 init_gain=0.02):
+def unet_pix2pix(input_size=(256,256,1), output_channels=1, init_gain=0.02):
     """
     A Keras/Tensorflow implementation of the U-net used in the latest pix2pix 
     PyTorch official implementation:
@@ -153,26 +95,20 @@ def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1,
     to the original U-Net architecture with some notable modifications:
     - addition of batch normalisation after each convolution
     - Use of LeakyReLU instead of ReLU for encoder layer activations
-    - convolutional stride 2, and kernels size 4 used everywhere as instead of
+    - convolutional stride 2, and kernels size 4 used everywhere instead of
       2/1 stride and kernel size 3 in original
-      
-    Known discrepencies:
-    - Authors' pytorch repo implies batchnorm is not trainable, 
-      but here we use trainable batch norm layers. Results are
-      poor otherwise.
     
     """
     
     init = tf.keras.initializers.RandomNormal(mean=0.0, stddev=init_gain)
     oc = output_channels
-    nt = norm_type
-    use_bias = nt != 'batch'  # no need to use bias as BatchNorm has affine parameters
-                              # is this true in Keras
+    nt = 'batch'
+    use_bias = False  # affine params in batchnorm so no need for bias
     
     # ----------------------------------------------------------------
     # U-net
     
-    # outermost
+    # outermost                                                                                   # Output shape
     inputs = Input(input_size)                                                                    # (256, 256, input_size[-1])
     e1 = downconv(inputs, 64, activation=False, norm_type='none', use_bias=use_bias, init=init)   # (128, 128, 64)
     e2 = downconv(e1, 128, activation=True, norm_type=nt, use_bias=use_bias, init=init)           # (64, 64, 128)
@@ -184,8 +120,8 @@ def unet_pix2pix(norm_type='batch', input_size=(256,256,1), output_channels=1,
     
     # innermost
     e8 = downconv(e7, 512, activation=True, norm_type='none', use_bias=use_bias, 
-                  init=init, padding=(1, 1))                                             # (1, 1, 512) Authors': (1 x 1 x 512)
-    d8 = upconv(e8, 512, norm_type=nt, dropout=False, use_bias=use_bias, init=init)      # (2, 2, 512) Authors': (2 x 2 x 512)
+                  init=init, padding=(1, 1))                                                      # (1 x 1 x 512)
+    d8 = upconv(e8, 512, norm_type=nt, dropout=False, use_bias=use_bias, init=init)               # (2 x 2 x 512)
     
     d7 = upconv([d8, e7], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)          # (4, 4, 512)
     d6 = upconv([d7, e6], 512, norm_type=nt, dropout=True, use_bias=use_bias, init=init)          # (8, 8, 512)

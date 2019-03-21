@@ -83,3 +83,23 @@ class Metrics():
         fig.savefig(out_pth)
         # close all plots to avoid memory warning
         plt.close('all')
+
+
+def print_setup(tf_version, tf_eager, args, d_count, g_count, gan_count):
+    """
+    Parse and print setup details
+    """
+    print('\n-------------- Tensorflow --------------- \n')
+
+    print(f'{"TensorFlow version": >20}: {tf_version: <}')
+    print(f'{"Eager execution": >20}: {tf_eager: <}')
+
+    print('\n---------------- Options ---------------- \n')
+    for arg in vars(args):
+        print(f'{arg: >20}: {getattr(args, arg): <}')
+
+    print('\n---------- Trainable Parameters ---------- \n')
+    print(f'{"discriminator": >20}: {d_count: <}')
+    print(f'{"generator": >20}: {g_count: <}')
+    print(f'{"gan": >20}: {gan_count: <}')
+    print('\n------------------------------------------ \n')

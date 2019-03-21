@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>test_html</title>
+  </head>
+  <body>
+    <h3>Training results</h3>
+    <a href="../results/metrics.png">
+      <img src="../results/metrics.png" style="width:1024px">
+    </a>
+    <table border="1" style="table-layout: fixed;">
+      <tr>
+        <td halign="center" style="word-wrap: break-word;" valign="top">
+          <p>
+            <a href="../data/facades_processed/checkpoints/input/0000.png">
+              <img src="../data/facades_processed/checkpoints/input/0000.png">
+            </a><br>
+            <p>input</p>
+          </p>
+        </td>
+        <td halign="center" style="word-wrap: break-word;" valign="top">
+          <p>
+            <a href="../data/facades_processed/checkpoints/gen_pytorch/0000.png">
+              <img src="../data/facades_processed/checkpoints/gen_pytorch/0000.png">
+            </a><br>
+            <p>authors' pytorch</p>
+          </p>
+        </td>
+        <td halign="center" style="word-wrap: break-word;" valign="top">
+          <p>
+            <a href="../data/facades_processed/checkpoints/gen_tf/0000.png">
+              <img src="../data/facades_processed/checkpoints/gen_tf/0000.png">
+            </a><br>
+            <p>this implementation</p>
+          </p>
+        </td>
+        <td halign="center" style="word-wrap: break-word;" valign="top">
+          <p>
+            <a href="../data/facades_processed/checkpoints/target/0000.png">
+              <img src="../data/facades_processed/checkpoints/target/0000.png">
+            </a><br>
+            <p>target</p>
+          </p>
+        </td>
+        <td halign="center" style="word-wrap: break-word;" valign="top">
+          <p>
+            <a href="../data/facades_processed/checkpoints/patch_tf/0000.png">
+              <img src="../data/facades_processed/checkpoints/patch_tf/0000.png">
+            </a><br>
+            <p>patchgan</p>
+          </p>
+        </td>
+      </tr>
+      <p>epoch: 0</p>
+    </table>
+  </body>
+</html>

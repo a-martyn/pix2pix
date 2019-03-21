@@ -11,14 +11,9 @@ two 256x256 images in distinct directories
 """
 
 
-
 src_pth = 'data/facades'
 out_pth = 'data/facades_processed'
 dirs = ['train', 'val', 'test']
-
-# Wipe output dirs and make anew
-shutil.rmtree(out_pth, ignore_errors=True)
-os.mkdir(out_pth)
 
 for d in dirs:
     # Make target directory structure
