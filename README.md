@@ -3,17 +3,19 @@
 
 An implementation of the pix2pix [paper](https://arxiv.org/pdf/1611.07004.pdf) using Keras to build models and Tensorflow to train.
 
-The model is trained on the façades dataset. In this setting the model is provided with a diagram of a buildings' facade – showing the layout of windows, doors, balconies, mantels - with the objective being to generate a photo-realistic rendering.
+The model is trained on the façades dataset. In this setting the model is provided with a diagram of a buildings' facade, showing the layout of windows, doors, balconies, mantels, with the objective being to generate a photo-realistic rendering.
 
-A webpage is updated during training so that you can watch the model learn. You can see the development of concepts such as reflective windows, dampness and mildew on render, stonework detail, and shadows under balconies. Here's a few examples from the end of training. 
-
-- Input: the diagram provided to model as reference
-- Authors' Pytorch: Generated output of model provided by the authors of original paper
-- This Implementation: Generated output of this model
-- Target: A real photograph of the building
-- Patchgan: A heatmap visualisation showing which parts of the generated image in 3rd column the discriminator classifies as real (white) and fake (grey).
+A webpage is updated during training so that you can watch the model learn. Notice the development of concepts such as reflective windows, dampness and mildew on render, stonework detail, and shadows under balconies. Here's a few examples from the end of training. 
 
 ![](./results/end_of_training.png)
+
+Here the columns are:
+
+- Input: the diagram provided as input to the model as reference
+- Authors' Pytorch: Generated output of model provided by the authors of the original paper
+- This Implementation: Generated output of this implementation
+- Target: Real photograph of the building
+- Patchgan: A heatmap visualisation showing which parts of the generated image (in 3rd column) the discriminator classifies as real (white) and fake (grey).
 
 See the full training results by downloading this repo and opening `results/index.html` in your browser. Or train the model yourself by following the steps below.
 
