@@ -59,7 +59,7 @@ To view results as the model trains open `results/index.html` in your browser to
 - **The 'pix2pix' paper on which this implementation is based:** P. Isola, J. Zhu, T. Zhou, A. Efros. Image-to-Image Translation with Conditional Adversarial Networks. (https://arxiv.org/pdf/1611.07004.pdf)
     - Authors' [PyTorch implementation](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
     - Authors' original [Lua implementation](https://github.com/phillipi/pix2pix)
-- **The original GAN paper** I. Goodfellow et al. Generative Adversarial Networks (https://arxiv.org/abs/1406.2661)
+- **The original GAN paper:** I. Goodfellow et al. Generative Adversarial Networks (https://arxiv.org/abs/1406.2661)
 - **U-net architecture used by generator:** O. Ronneberger, P. Fischer, and T. Brox. U-net: Convolutional networks for biomedical image segmentation. In MIC- CAI, pages 234–241. Springer, 2015. 2, 3, 4 (https://arxiv.org/abs/1505.04597)
 - **Insights on receptive field theory exploited by Patchgan discriminator:** W. Luo, Y. Li, R. Urtasun, R. Zemel. Understanding the Effective Receptive Field in Deep Convolutional Neural Networks (https://arxiv.org/abs/1701.04128)
 - **Useful overview of theory challenges and tricks when training GANS:** T. Salimans et al. Improved Techniques for Training GANs (https://arxiv.org/pdf/1606.03498.pdf)
