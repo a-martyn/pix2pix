@@ -3,9 +3,9 @@
 
 An implementation of the pix2pix [paper](https://arxiv.org/pdf/1611.07004.pdf) using Keras to build models and Tensorflow to train.
 
-The model is trained on the façades dataset where the it is provided with an architectural diagram of a buildings' facade with the objective to generate a photo-realistic rendering.
+The model is trained on the façades dataset. In this setting the model is provided with a diagram of a buildings' facade – showing the layout of windows, doors, balconies, mantels - with the objective being to generate a photo-realistic rendering.
 
-A webpage is updated during training so that you can watch the model learn. It is fascinating see development of concepts such as reflective windows, dampness and mildew on render, stonework detail, and shadows under balconies. Here's a few examples from the end of training. 
+A webpage is updated during training so that you can watch the model learn. You can see the development of concepts such as reflective windows, dampness and mildew on render, stonework detail, and shadows under balconies. Here's a few examples from the end of training. 
 
 - Input: the diagram provided to model as reference
 - Authors' Pytorch: Generated output of model provided by the authors of original paper
@@ -15,7 +15,7 @@ A webpage is updated during training so that you can watch the model learn. It i
 
 ![](./results/end_of_training.png)
 
-You can see the full training results by downloading this repo and opening `results/index.html` in your browser. Or train the model yourself by following the steps below.
+See the full training results by downloading this repo and opening `results/index.html` in your browser. Or train the model yourself by following the steps below.
 
 ## Install dependencies
 
