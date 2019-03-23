@@ -23,7 +23,6 @@ from utils.html import build_results_page
 tf.enable_eager_execution()
 
 
-
 # Command Line Interface
 # ---------------------------------------------------------
 parser = argparse.ArgumentParser()
@@ -90,7 +89,6 @@ checkpoint_dir_labels = {
 
 # Setup
 # ---------------------------------------------------------
-
 # Set number of GPUs available on this device
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 # make dir for pretrained model if it does not exist
@@ -99,7 +97,6 @@ os.makedirs(pretrained_pth, exist_ok=True)
 
 # Data Augmentation
 # ---------------------------------------------------------
-
 train_generator = ImageDataGenerator(
     rescale=1./255,
     zoom_range=[0.8, 1.0],   # roughly equivalent to authors' enlarge and crop
@@ -118,10 +115,9 @@ check_generator = ImageDataGenerator(
 
 # Data Loaders
 # ---------------------------------------------------------
-
 # At each step, generator and discriminator train on a different image.
 # Not part of the original paper, but I just wanted to reasure myself 
-# that disconnection here does not impeded performance.
+# that disconnection here doesn't impede performance.
 g_loader = dataLoader(train_pth, train_generator, batch_sz=batch_size, 
                           shuffle=True, img_sz=input_sz[:2], seed=seed)
 
@@ -184,7 +180,6 @@ print_setup(tf.__version__,
 
 # Training loop
 # --------------------------------------------------------
-
 # Initialize metrics
 train_metrics = Metrics(metrics_csv_pth)
 start_time = datetime.datetime.now()
