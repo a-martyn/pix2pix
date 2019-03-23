@@ -49,7 +49,8 @@ Train:
 python train.py --experiment_title my_experiment
 ```
 
-## Watch the model learn!
+
+## Watch the model learn
 
 To view results as the model trains open `results/index.html` in your browser to view training progress visualisations, including training plots and checkpoint images for each epoch.
 
