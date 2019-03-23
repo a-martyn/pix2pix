@@ -1,5 +1,5 @@
 
-# pix2pix in Keras and Tensorflow
+# pix2pix in Tensorflow and Keras
 
 An implementation of the pix2pix [paper](https://arxiv.org/pdf/1611.07004.pdf) using Keras to build models and Tensorflow in eager execution mode to train.
 
@@ -32,7 +32,7 @@ Train:
 ```
 python train.py --experiment_title my_experiment
 ```
-
+View results: Open `results/index.html` in your browser to view training progress visualisations, including training plots and checkpoint images for each epoch.
 
 ### References
 
