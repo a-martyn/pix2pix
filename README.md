@@ -1,9 +1,21 @@
 
 # pix2pix in Tensorflow and Keras
 
-An implementation of the pix2pix [paper](https://arxiv.org/pdf/1611.07004.pdf) using Keras to build models and Tensorflow in eager execution mode to train.
+An implementation of the pix2pix [paper](https://arxiv.org/pdf/1611.07004.pdf) using Keras to build models and Tensorflow to train.
+
+The model is trained on the façades dataset where the it is provided with an architectural diagram of a buildings' facade with the objective to generate a photo-realistic rendering.
+
+A webpage is updated during training so that you can watch the model learn. It is fascinating see development of concepts such as reflective windows, dampness and mildew on render, stonework detail, and shadows under balconies. Here's a few examples from the end of training. 
+
+- Input: the diagram provided to model as reference
+- Authors' Pytorch: Generated output of model provided by the authors of original paper
+- This Implementation: Generated output of this model
+- Target: A real photograph of the building
+- Patchgan: A heatmap visualisation showing which parts of the generated image in 3rd column the discriminator classifies as real (white) and fake (grey).
 
 ![](./results/end_of_training.png)
+
+You can see the full training results by downloading this repo and opening `results/index.html` in your browser. Or train the model yourself by following the steps below.
 
 ## Install dependencies
 
@@ -21,7 +33,7 @@ pip install -r requirements.txt
 Download facades dataset:
 
 ```
-bash download_dataset.sh facades
+bash download_dataset.sh façades
 ```
 
 Preprocess data:
@@ -34,14 +46,19 @@ Train:
 ```
 python train.py --experiment_title my_experiment
 ```
-View results: Open `results/index.html` in your browser to view training progress visualisations, including training plots and checkpoint images for each epoch.
 
-### References
+## Watch the model learn!
 
-- [30] A. Radford, L. Metz, and S. Chintala. Unsupervised representation learning with deep convolutional generative adversarial networks. arXiv preprint arXiv:1511.06434, 2015.
-- [34] O. Ronneberger, P. Fischer, and T. Brox. U-net: Convolutional networks for biomedical image segmentation. In MIC- CAI, pages 234–241. Springer, 2015. 2, 3, 4
-- https://arxiv.org/pdf/1611.07004.pdf
-- https://richzhang.github.io/ideepcolor/
-- http://richzhang.github.io/colorization/
+To view results as the model trains open `results/index.html` in your browser to view training progress visualisations, including training plots and checkpoint images for each epoch.
+
+## References
+
+- **The 'pix2pix' paper on which this implementation is based:** P. Isola, J. Zhu, T. Zhou, A. Efros. Image-to-Image Translation with Conditional Adversarial Networks. (https://arxiv.org/pdf/1611.07004.pdf)
+    - Authors' [PyTorch implementation](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+    - Authors' original [Lua implementation](https://github.com/phillipi/pix2pix)
+- **The original GAN paper** I. Goodfellow et al. Generative Adversarial Networks (https://arxiv.org/abs/1406.2661)
+- **U-net architecture used by generator:** O. Ronneberger, P. Fischer, and T. Brox. U-net: Convolutional networks for biomedical image segmentation. In MIC- CAI, pages 234–241. Springer, 2015. 2, 3, 4 (https://arxiv.org/abs/1505.04597)
+- **Insights on receptive field theory exploited by Patchgan discriminator:** W. Luo, Y. Li, R. Urtasun, R. Zemel. Understanding the Effective Receptive Field in Deep Convolutional Neural Networks (https://arxiv.org/abs/1701.04128)
+- **Useful overview of theory challenges and tricks when training GANS:** T. Salimans et al. Improved Techniques for Training GANs (https://arxiv.org/pdf/1606.03498.pdf)
 
 
